@@ -1,6 +1,34 @@
-# [Nombre de la prueba]
+# Soporte Tickets
 
-> Reemplazar esta línea con una descripción del problema en dos frases: qué resuelve y para quién.
+Plataforma interna de gestión de tickets de soporte técnico para un
+integrador de telefonía IP, con autenticación por roles (Administrador,
+Agente, Supervisor). Centraliza la creación, asignación, seguimiento y
+comentarios de los tickets, y expone métricas operativas (carga por
+agente, tickets estancados, tiempos de resolución) para que Supervisores
+y Administradores puedan tomar decisiones sobre la operación.
+
+## Resumen ejecutivo
+
+Backend REST completo (autenticación JWT con refresh token rotativo,
+tickets con historial de asignaciones, administración de usuarios,
+dashboard de métricas) y frontend React con 6 vistas (login, listado,
+detalle, creación, dashboard, usuarios), sobre un modelo de datos
+derivado directamente de las 8 consultas analíticas exigidas
+(`queries.sql`, en la raíz del repo — ver "Estructura").
+
+Las decisiones con más peso: el modelo se diseñó a partir de esas 8
+consultas, no al revés (ver "Modelo de datos"); `tickets.agente_id` es
+una caché del agente actual, separada de `historial_asignaciones` como
+registro de auditoría (misma sección); el índice de la consulta 3 se
+verificó con `EXPLAIN ANALYZE` sobre 1 millón de filas en vez de asumir
+que servía (ver "Qué pasa con millones de registros"); los tokens de
+sesión del frontend viven en memoria, nunca en `localStorage`, por XSS
+(ver "Frontend").
+
+**Índice**: Stack · Cómo ejecutarlo · Pruebas · Estructura · Modelo de
+datos · Decisiones y justificación · Supuestos · Datos de prueba ·
+Autenticación y autorización · Módulo de tickets · Frontend · Qué pasa
+con millones de registros · Qué falta y qué haría con más tiempo.
 
 ## Stack
 
@@ -83,6 +111,8 @@ api/
   prisma/         esquema y migraciones
 web/
   src/            interfaz React, con un único cliente de API
+queries.sql       entregable obligatorio: 8 consultas analíticas sobre el
+                  modelo, corren directo contra Postgres (no vía Prisma)
 ```
 
 La separación por módulos permite agregar un dominio nuevo sin tocar `app.ts`:
@@ -148,8 +178,8 @@ transacción de Prisma.
 | Bloquear un usuario solo cierra su login (`activo=false`) | Reasignar en cascada sus tickets abiertos al bloquear | Reasignación automática exige una regla de negocio (¿a quién? ¿con qué criterio?) que nadie pidió. Preservar `agente_id` e historial intactos mantiene la auditoría íntegra; la reasignación de tickets huérfanos queda como acción manual de un supervisor. |
 | `Cliente` mínimo: solo `id` y `nombre` | Agregar `email`/`teléfono` de contacto | Es todo lo que las 8 consultas necesitan; campos de contacto no tienen ningún consumidor en el alcance actual. |
 | IDs de dominio como UUID (`@db.Uuid`), no enteros | Enteros autoincrementales (`serial`/`bigserial`) | Un ID autoincremental es adivinable y enumerable (`/tickets/1042` implica que `1041` y `1043` existen) — en un sistema de soporte con datos de clientes eso es una fuga de información gratuita. UUID también se puede generar en el backend antes del `INSERT`, lo que permite crear un ticket y su primera fila de `historial_asignaciones` con el mismo ID ya conocido dentro de una sola transacción, sin depender de que la base devuelva el ID generado. |
-| UUID **v7**, no v4, y tipo nativo `@db.Uuid` (no `text`) | UUID v4 aleatorio, o mantener el `text` que traía el modelo `Example` de relleno | Un UUID v4 es aleatorio en sus 128 bits, así que cada `INSERT` cae en una posición impredecible del índice B-tree de la PK — con volumen alto eso fragmenta el índice, ensancha las páginas y hunde la tasa de acierto de caché. UUID v7 lleva un timestamp en los primeros 48 bits, así que los IDs se generan en orden creciente: el índice crece "al final", igual que con un `serial`, pero sin ser adivinable. Se genera en Prisma Client (`@default(uuid(7))`, soportado desde la versión ya instalada, 5.22), no en Postgres — Postgres 16 (la versión fijada en `docker-compose.yml`) todavía no trae `uuidv7()` nativo, eso llegó en Postgres 18. Se agrega `@db.Uuid` para que la columna se guarde como los 16 bytes binarios nativos de Postgres en vez de como texto de 36 caracteres — la mitad del espacio y comparación más rápida. Se evaluó ULID como alternativa: da el mismo ordenamiento temporal, pero se codifica en base32 (26 caracteres) y no calza con el tipo `uuid` nativo de Postgres, así que habría que guardarlo como `varchar` — se pierde el tipo nativo sin ganar nada que UUID v7 no dé ya en este stack. |
-| `tickets(estado, fecha_actualizacion)` como índice compuesto | Índices separados en `estado` y en `fecha_actualizacion`, o ninguno | Es el índice que responde la consulta 3 (tickets sin actualizar hace más de 48h, la que usa Supervisor). Sin él, con millones de filas esa consulta hace *sequential scan* completo de `tickets` en cada carga del dashboard de Supervisor. El orden de las columnas importa: `estado` primero porque el filtro `estado NOT IN (...)` reduce el conjunto antes de comparar `fecha_actualizacion`. |
+| UUID **v7**, no v4, y tipo nativo `@db.Uuid` (no `text`) | UUID v4 aleatorio, o guardar el UUID como texto | Un UUID v4 es aleatorio en sus 128 bits, así que cada `INSERT` cae en una posición impredecible del índice B-tree de la PK — con volumen alto eso fragmenta el índice, ensancha las páginas y hunde la tasa de acierto de caché. UUID v7 lleva un timestamp en los primeros 48 bits, así que los IDs se generan en orden creciente: el índice crece "al final", igual que con un `serial`, pero sin ser adivinable. Se genera en Prisma Client (`@default(uuid(7))`, soportado desde la versión ya instalada, 5.22), no en Postgres — Postgres 16 (la versión fijada en `docker-compose.yml`) todavía no trae `uuidv7()` nativo, eso llegó en Postgres 18. Se agrega `@db.Uuid` para que la columna se guarde como los 16 bytes binarios nativos de Postgres en vez de como texto de 36 caracteres — la mitad del espacio y comparación más rápida. Se evaluó ULID como alternativa: da el mismo ordenamiento temporal, pero se codifica en base32 (26 caracteres) y no calza con el tipo `uuid` nativo de Postgres, así que habría que guardarlo como `varchar` — se pierde el tipo nativo sin ganar nada que UUID v7 no dé ya en este stack. |
+| `tickets(estado, fecha_actualizacion)` como índice compuesto | Índices separados en `estado` y en `fecha_actualizacion`, o ninguno | Es el índice que responde la consulta 3 (tickets sin actualizar hace más de 48h, la que usa Supervisor). Sin él, con millones de filas esa consulta hace *sequential scan* completo de `tickets` en cada carga del dashboard de Supervisor. El orden de las columnas importa: `estado` primero porque el filtro `estado IN (...)` reduce el conjunto antes de comparar `fecha_actualizacion`. |
 | `tickets(prioridad, cliente_id)` como índice compuesto | Índices separados en `prioridad` y en `cliente_id`, o ninguno | Responde la consulta 2 (top 5 clientes con tickets de prioridad alta/crítica): filtra por `prioridad IN ('alta','critica')` y agrupa por `cliente_id`. `prioridad` va primero por el mismo motivo que en el índice anterior — es el filtro (`WHERE`), reduce el conjunto antes de agrupar; `cliente_id` va segundo porque es la columna del `GROUP BY`, así Postgres puede recorrer el índice ya agrupado por cliente dentro de cada prioridad en vez de ordenar aparte. |
 
 ## Supuestos
@@ -157,7 +187,7 @@ transacción de Prisma.
 > Todo lo que el enunciado no especificaba y hubo que asumir. Esta sección vale
 > tanto como el código: muestra qué preguntas se hicieron sobre el problema.
 
-- **Valores de `estado`** (confirmados por Darío): `nuevo`, `asignado`,
+- **Valores de `estado`** (confirmados): `nuevo`, `asignado`,
   `en_progreso`, `en_espera_cliente`, `resuelto`, `cerrado`, `reabierto`.
 - **Valores de `prioridad`** (confirmados): `baja`, `media`, `alta`,
   `critica`.
@@ -222,7 +252,7 @@ transacción de Prisma.
   cuentas las crea un Administrador (`POST /api/usuarios`), no que cualquiera
   se registra solo. Coherente con el supuesto ya hecho de que `Cliente`
   tampoco inicia sesión.
-- **`descripcion` es obligatoria en `Ticket`** (confirmado por Darío): un
+- **`descripcion` es obligatoria en `Ticket`** (confirmado): un
   ticket sin descripción no es accionable para la operación — un agente no
   puede trabajar ni un supervisor puede auditar un ticket que solo tiene
   título. Se rechaza como inválido en la validación de entrada, no se
@@ -304,11 +334,10 @@ base, nunca el valor en texto plano. Dos decisiones dentro de esto:
    implementado y probado (administración de usuarios, exclusiva de
    Administrador).
 2. **Por propiedad del recurso** (ej. un agente solo actualiza tickets
-   asignados a él) — **no se implementa en este módulo**: depende de datos
-   del recurso mismo (`ticket.agenteId`), que todavía no existe como
-   endpoint. Se construye en el módulo de tickets. Escribir ese middleware
-   ahora, sin un recurso real al que aplicarlo, sería código sin una prueba
-   de integración real que lo ejerza.
+   asignados a él) — implementada en el módulo de tickets
+   (`autorizar-propiedad-ticket.ts`), no acá: depende de un dato del
+   recurso mismo (`ticket.agenteId`), no solo del usuario autenticado. Ver
+   "Módulo de tickets" más abajo para el detalle completo.
 
 **Seguridad**:
 - Contraseñas con `argon2id` (recomendación actual de OWASP) —
@@ -384,14 +413,13 @@ aprovisionado por un Administrador — ver Supuestos).
 | PATCH | `/api/tickets/:id/reasignar` | Administrador/Supervisor (por rol, no por propiedad) |
 | POST | `/api/tickets/:id/comentarios` | cualquier autenticado |
 | DELETE | `/api/tickets/:id` | Administrador |
-| GET | `/api/dashboard/*` (9 rutas, una por consulta de `queries.sql`) | Administrador/Supervisor |
+| GET | `/api/dashboard/*` (10 rutas: 9 una por cada consulta de `queries.sql`, más una décima — tickets de agentes inactivos, no es una de las 8) | Administrador/Supervisor |
 
-**Autorización por propiedad** (`autorizar-propiedad-ticket.ts`): el
-segundo nivel que quedó pendiente en el módulo de auth. Administrador y
-Supervisor operan sobre cualquier ticket; un Agente solo sobre los que
-tiene `agenteId` asignado. Vive en el módulo de tickets (no en
-`shared/middleware`) porque depende de un dato del recurso, no solo del
-usuario — exactamente como se había anticipado.
+**Autorización por propiedad** (`autorizar-propiedad-ticket.ts`):
+Administrador y Supervisor operan sobre cualquier ticket; un Agente solo
+sobre los que tiene `agenteId` asignado. Vive en el módulo de tickets (no
+en `shared/middleware`) porque depende de un dato del recurso, no solo
+del usuario.
 
 **Reasignar es una acción de rol, no de propiedad**: un Agente no
 reasigna ni siquiera sus propios tickets — es una decisión de gestión
@@ -433,14 +461,17 @@ al menos una fila de historial). Se traduce el error de Postgres a un 409
 claro (`Prisma.PrismaClientKnownRequestError`, código `P2003`) en vez de
 dejarlo pasar como 500 genérico.
 
-**Dashboard**: cada uno de los 9 endpoints corre, **literal**, la consulta
+**Dashboard**: 10 endpoints en total. 9 corren, **literal**, la consulta
 correspondiente de `queries.sql` vía `prisma.$queryRaw` — no se
-reescriben como query builder de Prisma. Así el endpoint es demostrablemente
-la misma consulta que ya se verificó a mano contra el seed, con el mismo
-índice detrás. `COUNT(...)` en Postgres devuelve `bigint`, que Prisma trae
-como `BigInt` de JS — no serializable directo a JSON (`JSON.stringify`
-revienta) — se convierte a `number` antes de responder en las 9 funciones
-de `dashboard.service.ts`.
+reescriben como query builder de Prisma, para que cada uno sea
+demostrablemente la misma consulta que ya se verificó a mano contra el
+seed, con el mismo índice detrás. El décimo (tickets de agentes
+inactivos, agregado después para el frontend — ver "Frontend" más abajo)
+sigue el mismo patrón de SQL directo sin venir de las 8 consultas.
+`COUNT(...)` en Postgres devuelve `bigint`, que Prisma trae como `BigInt`
+de JS — no serializable directo a JSON (`JSON.stringify` revienta) — se
+convierte a `number` antes de responder en cada función que agrega sobre
+`bigint`.
 
 **Bug real encontrado al verificar el módulo, no al construirlo**: el
 seed (escrito antes de que existiera auth) guardaba un *placeholder* como
@@ -478,10 +509,8 @@ web/src/
 
 ### Autenticación en el frontend: por qué el access token vive en memoria
 
-Decisión ya tomada por Darío, documentada acá con el razonamiento completo
-para la sustentación. `token-store.ts` guarda el access token y el refresh
-token en una variable de módulo (`let`), **no** en `localStorage` ni
-`sessionStorage`.
+`token-store.ts` guarda el access token y el refresh token en una variable
+de módulo (`let`), **no** en `localStorage` ni `sessionStorage`.
 
 **Por qué**: `localStorage` es legible por cualquier script que corra en
 la página. Si el frontend tuviera una vulnerabilidad XSS (una librería de
@@ -559,9 +588,9 @@ UUID a mano en un formulario):
 ### El dashboard de Agente no usa `/api/dashboard/*`
 
 El backend restringe todo `/api/dashboard/*` a Administrador/Supervisor
-(decisión ya tomada en el módulo de tickets). Este mensaje pide,
-explícitamente, que el Agente vea "su carga y sus tickets vencidos" en el
-dashboard — un choque directo con esa restricción.
+(decisión ya tomada en el módulo de tickets). El requisito de que el
+Agente vea "su carga y sus tickets vencidos" en el dashboard choca
+directo con esa restricción.
 
 La solución no fue abrir el dashboard a todos los roles: `DashboardAgente`
 (en `DashboardPage.tsx`) reusa `GET /api/tickets?agenteId=<su-id>`, que
@@ -571,8 +600,8 @@ endpoints nuevos para esta parte — el listado que ya existía alcanzaba.
 
 ### Una vista de dashboard nueva: tickets de agentes inactivos
 
-Pedida explícita en este mensaje ("visible para supervisor y
-administrador"), no es una de las 8 consultas de `queries.sql`. Se agregó
+Requisito explícito ("visible para supervisor y administrador"), no es
+una de las 8 consultas de `queries.sql`. Se agregó
 como una décima función en `dashboard.service.ts`
 (`ticketsAgentesInactivos`), mismo patrón que las otras 9 (SQL directo,
 sin parámetros externos). El seed se ajustó para que esta vista tenga algo
@@ -663,16 +692,16 @@ contenedor arranca limpio, sin warnings — no solo que el build no falla.
 
 ## Qué pasa con millones de registros: midiendo el índice de la consulta 3
 
-Es una de las preguntas que van a hacer los CTO en la sustentación, así que
-en vez de suponer que el índice `tickets(estado, fecha_actualizacion)` sirve
+Es una pregunta central sobre el manejo de volumen de datos, así que en
+vez de suponer que el índice `tickets(estado, fecha_actualizacion)` sirve
 porque está declarado en el schema, se midió con `EXPLAIN ANALYZE` sobre
 datos reales cargados en Postgres — no sobre los tickets del seed
 (caben en una sola página, cualquier índice ahí es ruido), sino sobre
 **1 millón de filas sintéticas** insertadas temporalmente con una
 distribución realista (65% resueltos/cerrados, y del resto solo ~8% con más
 de 48h sin tocarse — la mayoría de los tickets abiertos se actualiza
-seguido). Se borraron después de medir; el seed que queda cargado en la
-base es la del seed curado de siempre.
+seguido). Se borraron después de medir; la base queda con el seed curado
+de siempre.
 
 **Primer resultado, con la consulta escrita como en el enunciado
 (`estado NOT IN ('cerrado', 'resuelto')`):** Postgres ignoró el índice
@@ -741,11 +770,12 @@ efectivamente puede volverse rápida cuando la tabla crezca.
   transición (ej. `nuevo` → `cerrado` directo, sin pasar por los estados
   intermedios). Con más tiempo: una tabla de transiciones válidas por
   estado, validada en el servicio antes de escribir.
-- **Consolidar los 9 endpoints de dashboard** en uno o dos que devuelvan
+- **Consolidar los 10 endpoints de dashboard** en uno o dos que devuelvan
   todo lo que la pantalla de dashboard necesita en una sola petición, si el
-  frontend termina pidiéndolo así — hoy son 9 rutas 1 a 1 con las 9
-  consultas de `queries.sql` a propósito (alcance cerrado, ver
-  `docs/uso-ia.md`), no una decisión final de forma de API.
+  frontend termina pidiéndolo así — hoy son rutas 1 a 1 (9 con las 9
+  consultas de `queries.sql`, una con la vista de agentes inactivos) a
+  propósito (alcance cerrado, ver `docs/uso-ia.md`), no una decisión final
+  de forma de API.
 - **`resuelto_por_id` en `Ticket`** para que la consulta 4 (usuario con más
   tickets resueltos) atribuya la resolución a quien realmente resolvió el
   ticket, no al agente asignado actual — ver Supuestos para el detalle
