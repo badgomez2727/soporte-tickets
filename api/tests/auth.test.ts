@@ -102,6 +102,27 @@ describe('Acceso a rutas protegidas', () => {
 
     expect(res.status).toBe(403);
   });
+
+  // Pedida explícitamente: la vista de administración de usuarios del
+  // frontend oculta el enlace y las acciones para un Agente, pero eso es
+  // solo usabilidad — lo que de verdad importa es que el servidor rechace
+  // la acción de bloqueo aunque alguien conozca la ruta y llame al API
+  // directo, sin pasar por el frontend.
+  it('rechaza por rol insuficiente sobre el endpoint de bloqueo de usuarios (agente)', async () => {
+    const login = await request(app)
+      .post('/api/auth/login')
+      .send({ email: EMAIL_AGENTE, password: PASSWORD_AGENTE });
+
+    const res = await request(app)
+      .patch(`/api/usuarios/${adminId}/bloquear`)
+      .set('Authorization', `Bearer ${login.body.accessToken}`);
+
+    expect(res.status).toBe(403);
+
+    // Efecto real de la verificación: el admin objetivo sigue activo.
+    const admin = await prisma.usuario.findUniqueOrThrow({ where: { id: adminId } });
+    expect(admin.activo).toBe(true);
+  });
 });
 
 describe('Refresh token: rotación y detección de reuso', () => {
