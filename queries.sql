@@ -11,7 +11,8 @@
 -- justificación completa de cada una:
 --   - Consulta 3, 6, 9: estado IN (<abiertos>) en vez de NOT IN ('cerrado','resuelto'),
 --     por rendimiento del índice (ver "Qué pasa con millones de registros").
---   - Consulta 4: usa fecha_resolucion en vez de fecha_actualizacion.
+--   - Consulta 4: usa fecha_resolucion en vez de fecha_actualizacion, y cuenta
+--     estado IN ('resuelto','cerrado') en vez de solo 'resuelto'.
 --   - Consulta 7: cuenta reasignaciones (COUNT - 1), no asignaciones totales.
 
 -- 1. Cantidad de tickets por estado para cada cliente.
@@ -64,18 +65,23 @@ WHERE t.estado IN ('nuevo', 'asignado', 'en_progreso', 'en_espera_cliente', 'rea
   AND t.fecha_actualizacion < NOW() - INTERVAL '48 hours';
 
 -- 4. Usuario con mayor cantidad de tickets resueltos durante el último mes.
---    CORREGIDA: el enunciado original filtraba por fecha_actualizacion, que
---    se toca con cualquier cambio al ticket (un comentario, una
---    reasignación), no solo al resolverlo. fecha_resolucion es la fecha de
---    negocio correcta para "cuándo se resolvió" — es la misma columna que
---    usa la consulta 5 para el mismo concepto.
+--    CORREGIDA (dos ajustes sobre el enunciado original):
+--    - fecha_resolucion en vez de fecha_actualizacion, que se toca con
+--      cualquier cambio al ticket (un comentario, una reasignación), no solo
+--      al resolverlo. Es la misma columna que usa la consulta 5.
+--    - estado IN ('resuelto', 'cerrado') en vez de solo 'resuelto': un
+--      ticket resuelto el mes pasado y cerrado después quedaba fuera del
+--      conteo con el filtro original. Es el mismo criterio de "resuelto o
+--      cerrado, con fecha_resolucion" que usa la consulta 5.
+--    Limitación conocida: ver README > Supuestos, nota sobre agente_id vs.
+--    quién resolvió realmente el ticket.
 SELECT
     u.id AS usuario_id,
     u.nombre AS usuario_nombre,
     COUNT(t.id) AS tickets_resueltos
 FROM usuarios u
 JOIN tickets t ON u.id = t.agente_id
-WHERE t.estado = 'resuelto'
+WHERE t.estado IN ('resuelto', 'cerrado')
   AND t.fecha_resolucion >= NOW() - INTERVAL '1 month'
 GROUP BY u.id, u.nombre
 ORDER BY tickets_resueltos DESC
