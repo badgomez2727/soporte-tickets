@@ -4,6 +4,12 @@
 
 generator client {
   provider = "prisma-client-js"
+  // "native" (para correr fuera de Docker) + el binario correcto para el
+  // Alpine actual: node:22-alpine ya trae OpenSSL 3, no 1.1, y la
+  // detección automática de Prisma se equivocaba (asumía 1.1.x). Sin esto
+  // el contenedor de la API no arranca — se encontró corriendo el stack
+  // real, no leyendo el Dockerfile (ver README/docs/uso-ia.md).
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
 }
 
 datasource db {

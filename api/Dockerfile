@@ -1,6 +1,12 @@
 FROM node:22-alpine AS base
 WORKDIR /app
 ENV NODE_ENV=development
+# Prisma detecta la versión de OpenSSL corriendo el binario `openssl` — sin
+# él (no viene instalado en node:22-alpine) la detección falla y Prisma
+# asume por defecto OpenSSL 1.1, que ya no existe en esta imagen (trae 3.x).
+# Sin esto el motor de Prisma no carga y la API no arranca — se encontró
+# levantando el contenedor real, no leyendo el Dockerfile.
+RUN apk add --no-cache openssl
 
 FROM base AS deps
 COPY package.json package-lock.json* ./

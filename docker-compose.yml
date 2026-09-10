@@ -24,6 +24,10 @@ services:
       PORT: 3000
       DATABASE_URL: postgresql://app:app@db:5432/app?schema=public
       CORS_ORIGIN: http://localhost:5173
+      # Secreto de desarrollo local únicamente — nunca se usa fuera de este
+      # docker-compose. En un ambiente real este valor no vive en el repo
+      # (ver api/.env.example para cómo se genera uno propio).
+      JWT_SECRET: f5fefcaa52fa262118e6b46d07d733377fb6d003723e42bd5ceedf86d810881e
     ports:
       - '3000:3000'
     volumes:
