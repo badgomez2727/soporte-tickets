@@ -1,45 +1,79 @@
-import { useEffect, useState } from 'react';
-import { apiGet } from './api-client.js';
-
-type Health = { status: string; uptime: number };
-
-type State =
-  | { kind: 'loading' }
-  | { kind: 'ready'; data: Health }
-  | { kind: 'error'; message: string };
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
+import { AuthProvider } from './auth/AuthContext.js';
+import { RutaProtegida } from './auth/RutaProtegida.js';
+import { Layout } from './componentes/Layout.js';
+import { DashboardPage } from './paginas/DashboardPage.js';
+import { LoginPage } from './paginas/LoginPage.js';
+import { TicketCrearPage } from './paginas/TicketCrearPage.js';
+import { TicketDetallePage } from './paginas/TicketDetallePage.js';
+import { TicketsListaPage } from './paginas/TicketsListaPage.js';
+import { UsuariosPage } from './paginas/UsuariosPage.js';
 
 export function App() {
-  const [state, setState] = useState<State>({ kind: 'loading' });
-
-  useEffect(() => {
-    let cancelled = false;
-
-    apiGet<Health>('/health')
-      .then((data) => {
-        if (!cancelled) setState({ kind: 'ready', data });
-      })
-      .catch((error: Error) => {
-        if (!cancelled) setState({ kind: 'error', message: error.message });
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
   return (
-    <main>
-      <h1>Base del proyecto</h1>
-      <p>Conexion con el API:</p>
+    <AuthProvider>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/login" element={<LoginPage />} />
 
-      {state.kind === 'loading' && <p>Consultando...</p>}
-      {state.kind === 'error' && <p role="alert">No se pudo conectar: {state.message}</p>}
-      {state.kind === 'ready' && (
-        <p>
-          API respondiendo <strong>{state.data.status}</strong> con {Math.round(state.data.uptime)}s
-          en linea.
-        </p>
-      )}
-    </main>
+          <Route
+            path="/tickets"
+            element={
+              <RutaProtegida>
+                <Layout>
+                  <TicketsListaPage />
+                </Layout>
+              </RutaProtegida>
+            }
+          />
+          {/* Antes de /tickets/:id para que "nuevo" no se interprete como un id. */}
+          <Route
+            path="/tickets/nuevo"
+            element={
+              <RutaProtegida>
+                <Layout>
+                  <TicketCrearPage />
+                </Layout>
+              </RutaProtegida>
+            }
+          />
+          <Route
+            path="/tickets/:id"
+            element={
+              <RutaProtegida>
+                <Layout>
+                  <TicketDetallePage />
+                </Layout>
+              </RutaProtegida>
+            }
+          />
+
+          <Route
+            path="/dashboard"
+            element={
+              <RutaProtegida rolesPermitidos={['administrador', 'supervisor']}>
+                <Layout>
+                  <DashboardPage />
+                </Layout>
+              </RutaProtegida>
+            }
+          />
+
+          <Route
+            path="/usuarios"
+            element={
+              <RutaProtegida rolesPermitidos={['administrador']}>
+                <Layout>
+                  <UsuariosPage />
+                </Layout>
+              </RutaProtegida>
+            }
+          />
+
+          <Route path="/" element={<Navigate to="/tickets" replace />} />
+          <Route path="*" element={<Navigate to="/tickets" replace />} />
+        </Routes>
+      </BrowserRouter>
+    </AuthProvider>
   );
 }
