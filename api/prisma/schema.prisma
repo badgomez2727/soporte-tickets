@@ -1,4 +1,6 @@
-// Esquema base. El modelo del dominio se agrega aqui cuando llegue el enunciado.
+// Modelo de dominio derivado de las 8 consultas analíticas de queries.sql.
+// Ver README.md, sección "Modelo de datos", para el ERD y la justificación
+// de cada decisión (por qué UUID v7, por qué agente_id + historial, etc).
 
 generator client {
   provider = "prisma-client-js"
@@ -9,11 +11,134 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model Example {
-  id        String   @id @default(uuid())
-  name      String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+enum RolUsuario {
+  administrador
+  agente
+  supervisor
+}
 
-  @@map("examples")
+enum EstadoTicket {
+  nuevo
+  asignado
+  en_progreso
+  en_espera_cliente
+  resuelto
+  cerrado
+  reabierto
+}
+
+enum PrioridadTicket {
+  baja
+  media
+  alta
+  critica
+}
+
+model Usuario {
+  id            String     @id @default(uuid(7)) @db.Uuid
+  nombre        String
+  email         String     @unique
+  passwordHash  String     @map("password_hash")
+  rol           RolUsuario
+  activo        Boolean    @default(true)
+  fechaCreacion DateTime   @default(now()) @map("fecha_creacion")
+
+  // Tickets donde este usuario es el agente asignado actualmente.
+  ticketsAsignados Ticket[] @relation("TicketAgente")
+
+  // Historial: veces que este usuario quedó como agente asignado,
+  // y veces que este usuario ejecutó una (re)asignación sobre otro.
+  historialComoAgente    HistorialAsignacion[] @relation("HistorialAgente")
+  historialComoAsignador HistorialAsignacion[] @relation("HistorialAsignadoPor")
+
+  comentarios Comentario[]
+
+  @@map("usuarios")
+}
+
+model Cliente {
+  id            String   @id @default(uuid(7)) @db.Uuid
+  nombre        String
+  fechaCreacion DateTime @default(now()) @map("fecha_creacion")
+
+  tickets Ticket[]
+
+  @@map("clientes")
+}
+
+model Ticket {
+  id          String          @id @default(uuid(7)) @db.Uuid
+  titulo      String
+  descripcion String
+  estado      EstadoTicket    @default(nuevo)
+  prioridad   PrioridadTicket
+
+  clienteId String  @map("cliente_id") @db.Uuid
+  cliente   Cliente @relation(fields: [clienteId], references: [id])
+
+  // Agente asignado actualmente. Nullable: un ticket "nuevo" puede no tener
+  // agente todavía. Es una caché de "quién lo tiene ahora" — el detalle de
+  // cada cambio vive en HistorialAsignacion (ver README).
+  agenteId String?  @map("agente_id") @db.Uuid
+  agente   Usuario? @relation("TicketAgente", fields: [agenteId], references: [id])
+
+  fechaCreacion      DateTime  @default(now()) @map("fecha_creacion")
+  fechaActualizacion DateTime  @updatedAt @map("fecha_actualizacion")
+  // Se fija cuando estado pasa a resuelto/cerrado y SE LIMPIA (vuelve a null)
+  // si el ticket se reabre. Ver README > Supuestos, nota sobre `reabierto`.
+  fechaResolucion    DateTime? @map("fecha_resolucion")
+
+  historial   HistorialAsignacion[]
+  comentarios Comentario[]
+
+  // Índice compuesto para la consulta 3 (tickets sin actualizar hace
+  // más de 48h, filtrados por estado): sin él, con millones de filas esa
+  // consulta hace sequential scan completo en cada carga del dashboard.
+  @@index([estado, fechaActualizacion])
+  // Índice compuesto para la consulta 2 (top 5 clientes con tickets de
+  // prioridad alta/crítica): filtra por prioridad y agrupa por cliente.
+  @@index([prioridad, clienteId])
+  @@index([clienteId])
+  @@index([agenteId])
+  @@index([fechaCreacion])
+  @@map("tickets")
+}
+
+model HistorialAsignacion {
+  id String @id @default(uuid(7)) @db.Uuid
+
+  ticketId String @map("ticket_id") @db.Uuid
+  ticket   Ticket @relation(fields: [ticketId], references: [id])
+
+  // A quién quedó asignado el ticket en este evento.
+  agenteId String  @map("agente_id") @db.Uuid
+  agente   Usuario @relation("HistorialAgente", fields: [agenteId], references: [id])
+
+  // Quién ejecutó la (re)asignación. Nullable: null representa una
+  // autoasignación o una asignación hecha por el sistema (ej. al crear
+  // el ticket), sin un segundo usuario responsable del cambio.
+  asignadoPorId String?  @map("asignado_por_id") @db.Uuid
+  asignadoPor   Usuario? @relation("HistorialAsignadoPor", fields: [asignadoPorId], references: [id])
+
+  fechaAsignacion DateTime @default(now()) @map("fecha_asignacion")
+
+  // Soporta la consulta 7 (COUNT por ticket_id).
+  @@index([ticketId])
+  @@map("historial_asignaciones")
+}
+
+model Comentario {
+  id String @id @default(uuid(7)) @db.Uuid
+
+  ticketId String @map("ticket_id") @db.Uuid
+  ticket   Ticket @relation(fields: [ticketId], references: [id])
+
+  usuarioId String  @map("usuario_id") @db.Uuid
+  usuario   Usuario @relation(fields: [usuarioId], references: [id])
+
+  cuerpo        String
+  fechaCreacion DateTime @default(now()) @map("fecha_creacion")
+
+  @@index([ticketId])
+  @@map("comentarios")
 }
