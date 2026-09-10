@@ -3,6 +3,7 @@
 // está pensado para satisfacer — ver README.md > "El seed usa SQL crudo en un
 // punto" para la explicación de por qué hay una parte con $executeRaw.
 import { PrismaClient, PrioridadTicket, RolUsuario } from '@prisma/client';
+import { hashearPassword } from '../src/shared/auth/password.js';
 
 const prisma = new PrismaClient();
 
@@ -15,16 +16,20 @@ function diasAtras(dias: number, horasExtra = 0): Date {
   return new Date(ahora.getTime() - dias * 24 * 60 * 60 * 1000 - horasExtra * 60 * 60 * 1000);
 }
 
-// Todavía no existe el módulo de autenticación (es la siguiente tarea). Este
-// valor es un placeholder explícito, no un hash real. Cuando se construya el
-// login, agregar una librería de hashing (bcrypt/argon2) es una decisión de
-// dependencia que se propone entonces, no aquí.
-const PASSWORD_HASH_PLACEHOLDER = 'seed-sin-hash-real-pendiente-modulo-auth';
+// Misma contraseña para todos los usuarios del seed — es un ambiente de
+// demo/desarrollo, no producción. Usar el hash real (argon2id, ya
+// disponible desde el módulo de auth) en vez de un placeholder es lo que
+// permite iniciar sesión con estos usuarios durante la sustentación.
+const PASSWORD_DEMO = 'Demo1234!';
 
 async function limpiar() {
   // Orden inverso a las llaves foráneas: hijos antes que padres.
   await prisma.comentario.deleteMany();
   await prisma.historialAsignacion.deleteMany();
+  // tokenRefresco depende de usuario: si el módulo de auth ya se usó
+  // (login real, no solo este script), pueden existir sesiones activas que
+  // impedirían borrar usuarios sin esto.
+  await prisma.tokenRefresco.deleteMany();
   await prisma.ticket.deleteMany();
   await prisma.usuario.deleteMany();
   await prisma.cliente.deleteMany();
@@ -46,7 +51,7 @@ async function crearUsuarios() {
     data: {
       nombre: 'Marcela Restrepo',
       email: 'admin@infinivirt.test',
-      passwordHash: PASSWORD_HASH_PLACEHOLDER,
+      passwordHash: await hashearPassword(PASSWORD_DEMO),
       rol: RolUsuario.administrador,
     },
   });
@@ -54,7 +59,7 @@ async function crearUsuarios() {
     data: {
       nombre: 'Julián Zapata',
       email: 'supervisor@infinivirt.test',
-      passwordHash: PASSWORD_HASH_PLACEHOLDER,
+      passwordHash: await hashearPassword(PASSWORD_DEMO),
       rol: RolUsuario.supervisor,
     },
   });
@@ -62,7 +67,7 @@ async function crearUsuarios() {
     data: {
       nombre: 'Laura Gómez',
       email: 'agente1@infinivirt.test',
-      passwordHash: PASSWORD_HASH_PLACEHOLDER,
+      passwordHash: await hashearPassword(PASSWORD_DEMO),
       rol: RolUsuario.agente,
     },
   });
@@ -70,7 +75,7 @@ async function crearUsuarios() {
     data: {
       nombre: 'Carlos Ruiz',
       email: 'agente2@infinivirt.test',
-      passwordHash: PASSWORD_HASH_PLACEHOLDER,
+      passwordHash: await hashearPassword(PASSWORD_DEMO),
       rol: RolUsuario.agente,
     },
   });
@@ -78,7 +83,7 @@ async function crearUsuarios() {
     data: {
       nombre: 'Diana Torres',
       email: 'agente3@infinivirt.test',
-      passwordHash: PASSWORD_HASH_PLACEHOLDER,
+      passwordHash: await hashearPassword(PASSWORD_DEMO),
       rol: RolUsuario.agente,
     },
   });
@@ -89,7 +94,7 @@ async function crearUsuarios() {
     data: {
       nombre: 'Andrés Pineda',
       email: 'agente4@infinivirt.test',
-      passwordHash: PASSWORD_HASH_PLACEHOLDER,
+      passwordHash: await hashearPassword(PASSWORD_DEMO),
       rol: RolUsuario.agente,
       activo: false,
     },

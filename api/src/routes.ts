@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { healthRoutes } from './modules/health/health.routes.js';
 import { authRoutes } from './modules/auth/auth.routes.js';
 import { usuariosRoutes } from './modules/usuarios/usuarios.routes.js';
+import { ticketsRoutes } from './modules/tickets/tickets.routes.js';
 
 /**
  * Punto unico de registro de modulos. Cada modulo nuevo se monta aqui
@@ -12,3 +13,4 @@ export const routes = Router();
 routes.use('/health', healthRoutes);
 routes.use('/auth', authRoutes);
 routes.use('/usuarios', usuariosRoutes);
+routes.use('/tickets', ticketsRoutes);
