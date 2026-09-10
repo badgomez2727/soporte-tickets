@@ -534,3 +534,52 @@ por inspección de código (una condición determinista sobre `usuario.rol`,
 sin estado asíncrono de por medio, así que no hay ambigüedad), no
 clickeando en un navegador. Se lo digo así de explícito a Darío en vez de
 implicar que se probó visualmente cuando no fue el caso.
+
+---
+
+## 2026-09-09 — Reconstrucción del historial de commits
+
+**Se pidió:** reconstruir todo el trabajo del día (nunca comiteado) en
+commits temáticos, conventional commits en español, orden lógico —
+agrupados por tema, no por archivo. Además, extraer la medición de
+rendimiento del README a `docs/rendimiento.md` aparte.
+
+**Qué hizo la IA:**
+- Como varios archivos se tocaron en más de un momento del día
+  (`schema.prisma`, `queries.sql`, `seed.ts`, `routes.ts`, los módulos de
+  `usuarios` y `dashboard`, `auth.test.ts`), los reescribió temporalmente
+  a su contenido de cada etapa intermedia (con `Edit`, restaurando después
+  hacia el siguiente commit) para que cada commit refleje exactamente lo
+  que existía en ese punto — no todo el archivo final de una sola vez.
+- Priorizó agrupar por tema sobre cronología exacta cuando ambas
+  chocaban: la prueba de integración del 403 sobre bloqueo de usuarios se
+  escribió cronológicamente al final (junto con el frontend de admin),
+  pero quedó en el commit `feat(usuarios)` porque es de lo que trata.
+- Encontró y corrigió dos problemas reales de higiene del repo que no
+  eran parte del pedido explícito: `web/tsconfig.tsbuildinfo` (artefacto
+  de build) se había colado como archivo sin trackear — agregado a
+  `.gitignore` en su propio commit `chore`; y `docker-compose.yml` nunca
+  había recibido el `JWT_SECRET` que sí se agregó a `api/.env` — se
+  verificó reconstruyendo el stack de Docker realmente, no revisando el
+  diff a ojo.
+- **Verificó la suite completa varias veces después de terminar** (no se
+  conformó con que los 15 commits existieran): encontró un timeout
+  intermitente en `auth.test.ts` (un test distinto fallaba en cada
+  corrida) — investigó antes de asumir que era un bug de la
+  reconstrucción, confirmó con `auth.test.ts` corriendo solo (8/8 pasa
+  siempre) que era contención de CPU de la máquina compartida (otro
+  contenedor ajeno corriendo, `load average` de 5.9) chocando con el
+  timeout por defecto de Vitest (5s) y el costo intencional de argon2id.
+  Subió el timeout a 15s (`fix(test)`, commit aparte) y confirmó 16/16 en
+  dos corridas seguidas antes de dar el trabajo por cerrado.
+
+**Qué se aceptó:** todo lo anterior.
+
+**Nota:** esta es la prueba más concreta de por qué "verificar después de
+cada paso" no es un formalismo — reconstruir docenas de archivos entre 15
+commits a mano, reescribiendo varios a mano hacia estados intermedios,
+tenía un riesgo real de introducir un error de transcripción en algún
+punto. La corrida completa sí encontró algo (aunque resultó ser
+ambiental, no un error de la reconstrucción) — no se hubiera sabido sin
+correr la suite más de una vez al terminar, en vez de conformarse con la
+primera corrida en verde.
