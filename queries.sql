@@ -6,8 +6,11 @@
 -- migración (ver api/prisma/schema.prisma para el mapeo desde los nombres
 -- camelCase del lado de la aplicación).
 --
--- Dos consultas se corrigieron respecto al enunciado original — ver
--- README.md > Supuestos para la justificación completa de cada una:
+-- Varias consultas se corrigieron respecto al enunciado original — ver
+-- README.md > Supuestos y > "Qué pasa con millones de registros" para la
+-- justificación completa de cada una:
+--   - Consulta 3, 6, 9: estado IN (<abiertos>) en vez de NOT IN ('cerrado','resuelto'),
+--     por rendimiento del índice (ver "Qué pasa con millones de registros").
 --   - Consulta 4: usa fecha_resolucion en vez de fecha_actualizacion.
 --   - Consulta 7: cuenta reasignaciones (COUNT - 1), no asignaciones totales.
 
@@ -36,6 +39,18 @@ LIMIT 5;
 
 -- 3. Tickets que llevan más de 48 horas sin actualización y no están cerrados
 --    (usado por el rol Supervisor).
+--    CORREGIDA respecto a la primera versión: se escribe como
+--    estado IN (<estados abiertos>) en vez de estado NOT IN ('cerrado','resuelto').
+--    Son equivalentes en resultado (7 estados en total, cerrado/resuelto son
+--    los únicos 2 que no son "abiertos"), pero NO son equivalentes en
+--    rendimiento: probado con EXPLAIN ANALYZE sobre 1 millón de filas, un
+--    B-tree no puede usar "<> ALL (...)" (lo que genera NOT IN) como
+--    condición de la columna líder de un índice compuesto — Postgres solo
+--    puede filtrar por fecha_actualizacion y descarta el estado después de
+--    leer. Con IN (lista positiva) sí arma la condición completa sobre las
+--    dos columnas del índice tickets(estado, fecha_actualizacion) y lo usa
+--    de forma natural. Ver README.md > "Qué pasa con millones de registros"
+--    para el detalle completo de la medición.
 SELECT
     t.id,
     t.titulo,
@@ -45,7 +60,7 @@ SELECT
     u.nombre AS agente_asignado
 FROM tickets t
 LEFT JOIN usuarios u ON t.agente_id = u.id
-WHERE t.estado NOT IN ('cerrado', 'resuelto')
+WHERE t.estado IN ('nuevo', 'asignado', 'en_progreso', 'en_espera_cliente', 'reabierto')
   AND t.fecha_actualizacion < NOW() - INTERVAL '48 hours';
 
 -- 4. Usuario con mayor cantidad de tickets resueltos durante el último mes.
@@ -79,13 +94,15 @@ WHERE estado IN ('resuelto', 'cerrado')
 GROUP BY prioridad;
 
 -- 6. Cantidad de tickets abiertos (no resueltos/cerrados) por agente.
+--    CORREGIDA: estado IN (<abiertos>) en vez de NOT IN ('cerrado','resuelto'),
+--    por la misma razón de rendimiento de índice documentada en la consulta 3.
 SELECT
     u.id AS agente_id,
     u.nombre AS agente_nombre,
     COUNT(t.id) AS tickets_abiertos
 FROM usuarios u
 JOIN tickets t ON u.id = t.agente_id
-WHERE t.estado NOT IN ('cerrado', 'resuelto')
+WHERE t.estado IN ('nuevo', 'asignado', 'en_progreso', 'en_espera_cliente', 'reabierto')
 GROUP BY u.id, u.nombre
 ORDER BY tickets_abiertos DESC;
 
@@ -114,7 +131,9 @@ FROM tickets
 WHERE fecha_creacion >= NOW() - INTERVAL '30 days';
 
 -- 9. (Adicional dashboard) Total de tickets abiertos en el sistema.
+--    CORREGIDA: estado IN (<abiertos>) en vez de NOT IN ('cerrado','resuelto'),
+--    misma razón que la consulta 3 y la 6.
 SELECT
     COUNT(*) AS total_abiertos
 FROM tickets
-WHERE estado NOT IN ('cerrado', 'resuelto');
+WHERE estado IN ('nuevo', 'asignado', 'en_progreso', 'en_espera_cliente', 'reabierto');
