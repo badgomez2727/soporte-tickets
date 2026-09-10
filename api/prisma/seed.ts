@@ -107,7 +107,7 @@ async function main() {
   await limpiar();
 
   const { acme, logicorp, andina, norte, cafeDelValle } = await crearClientes();
-  const { admin1, supervisor1, agente1, agente2, agente3 } = await crearUsuarios();
+  const { admin1, supervisor1, agente1, agente2, agente3, agente4Bloqueado } = await crearUsuarios();
 
   // --- Tickets -------------------------------------------------------------
   // T1: nuevo, sin agente todavía, recién creado. No debe aparecer en la
@@ -299,6 +299,22 @@ async function main() {
     },
   });
 
+  // T13: asignado a un agente que ya está bloqueado (agente4Bloqueado) —
+  // caso realista: se le asignó antes de bloquearlo. Sin esto, la vista de
+  // "tickets de agentes inactivos" del dashboard (pedida por el frontend,
+  // no es una de las 8 consultas) no tendría nada que mostrar en la demo.
+  const t13 = await prisma.ticket.create({
+    data: {
+      titulo: 'Migrar buzones de voz al nuevo servidor',
+      descripcion: 'Pendiente desde antes de que este agente fuera bloqueado; requiere reasignación manual.',
+      estado: 'asignado',
+      prioridad: PrioridadTicket.media,
+      clienteId: andina.id,
+      agenteId: agente4Bloqueado.id,
+      fechaCreacion: diasAtras(7),
+    },
+  });
+
   // --- Historial de asignaciones --------------------------------------------
   // Una fila por evento de asignación, incluida la primera (ver README).
   await prisma.historialAsignacion.createMany({
@@ -315,6 +331,7 @@ async function main() {
       { ticketId: t8.id, agenteId: agente1.id, asignadoPorId: null, fechaAsignacion: diasAtras(3) },
       { ticketId: t11.id, agenteId: agente3.id, asignadoPorId: supervisor1.id, fechaAsignacion: diasAtras(60) },
       { ticketId: t12.id, agenteId: agente1.id, asignadoPorId: supervisor1.id, fechaAsignacion: diasAtras(18) },
+      { ticketId: t13.id, agenteId: agente4Bloqueado.id, asignadoPorId: supervisor1.id, fechaAsignacion: diasAtras(7) },
 
       // T9: 4 filas -> 3 reasignaciones (COUNT(h.id) - 1). Termina en agente1,
       // que es quien quedó como agenteId actual del ticket.
@@ -364,9 +381,10 @@ async function main() {
   }
 
   console.log('Seed cargado:');
-  console.log('  5 clientes, 6 usuarios (1 inactivo), 14 tickets');
-  console.log('  20 filas de historial de asignaciones, 7 comentarios');
+  console.log('  5 clientes, 6 usuarios (1 inactivo), 15 tickets');
+  console.log('  21 filas de historial de asignaciones, 7 comentarios');
   console.log('  4 tickets forzados a >48h sin actualizar vía SQL crudo');
+  console.log(`  Login de cualquier usuario del seed: contraseña "${PASSWORD_DEMO}"`);
 }
 
 main()

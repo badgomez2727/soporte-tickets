@@ -7,6 +7,11 @@ export async function listarController(_req: Request, res: Response) {
   res.json(usuarios);
 }
 
+export async function listarAgentesController(_req: Request, res: Response) {
+  const agentes = await usuariosService.listarAgentes();
+  res.json(agentes);
+}
+
 export async function obtenerController(req: Request, res: Response) {
   const { id } = idParamSchema.parse(req.params);
   const usuario = await usuariosService.obtener(id);

@@ -4,6 +4,7 @@ import { autenticar } from '../../shared/middleware/autenticar.js';
 import { autorizarRol } from '../../shared/middleware/autorizar-rol.js';
 import {
   listarController,
+  listarAgentesController,
   obtenerController,
   crearController,
   bloquearController,
@@ -12,7 +13,14 @@ import {
 
 export const usuariosRoutes = Router();
 
-// Toda la administración de usuarios es exclusiva del rol Administrador.
+// Excepción a propósito, montada ANTES de la puerta de Administrador de
+// abajo: cualquier rol autenticado puede pedir la lista de agentes (la
+// necesitan el formulario de creación de tickets y el de reasignación).
+// No es administración de usuarios, es solo un selector — ver
+// usuarios.service.ts > listarAgentes.
+usuariosRoutes.get('/agentes', autenticar, asyncHandler(listarAgentesController));
+
+// El resto de la administración de usuarios es exclusiva del rol Administrador.
 usuariosRoutes.use(autenticar, autorizarRol('administrador'));
 
 usuariosRoutes.get('/', asyncHandler(listarController));

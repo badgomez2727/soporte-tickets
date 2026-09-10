@@ -6,6 +6,7 @@ import {
   agenteMasResuelveMesController,
   porcentajeCerrados30DiasController,
   ticketsAbiertosPorAgenteController,
+  ticketsAgentesInactivosController,
   ticketsPorClienteYEstadoController,
   ticketsReasignadosFrecuentesController,
   ticketsSinActualizarController,
@@ -30,3 +31,4 @@ dashboardRoutes.get('/tickets-abiertos-por-agente', asyncHandler(ticketsAbiertos
 dashboardRoutes.get('/tickets-reasignados-frecuentes', asyncHandler(ticketsReasignadosFrecuentesController));
 dashboardRoutes.get('/porcentaje-cerrados-30-dias', asyncHandler(porcentajeCerrados30DiasController));
 dashboardRoutes.get('/total-abiertos', asyncHandler(totalAbiertosController));
+dashboardRoutes.get('/tickets-agentes-inactivos', asyncHandler(ticketsAgentesInactivosController));

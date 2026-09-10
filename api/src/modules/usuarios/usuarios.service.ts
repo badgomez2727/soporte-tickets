@@ -18,6 +18,22 @@ export async function listar(): Promise<UsuarioPublico[]> {
   return usuarios.map(aUsuarioPublico);
 }
 
+// Lista mínima (id + nombre + activo), abierta a cualquier rol autenticado
+// (no solo Administrador): la necesita el formulario de creación de
+// tickets (cualquier rol crea tickets) y el selector de reasignación. Se
+// incluye `activo` para que el frontend pueda excluir agentes bloqueados
+// de los selectores de asignación — la validación real de a quién se
+// puede reasignar sigue sin existir en el servicio `reasignar` de tickets
+// (ver README > Qué falta), esto es solo para que el selector no ofrezca
+// una opción inválida en primer lugar.
+export async function listarAgentes(): Promise<{ id: string; nombre: string; activo: boolean }[]> {
+  return prisma.usuario.findMany({
+    where: { rol: 'agente' },
+    select: { id: true, nombre: true, activo: true },
+    orderBy: { nombre: 'asc' },
+  });
+}
+
 export async function obtener(id: string): Promise<UsuarioPublico> {
   return aUsuarioPublico(await requerirUsuario(id));
 }

@@ -36,3 +36,7 @@ export async function porcentajeCerrados30DiasController(_req: Request, res: Res
 export async function totalAbiertosController(_req: Request, res: Response) {
   res.json(await dashboardService.totalAbiertos());
 }
+
+export async function ticketsAgentesInactivosController(_req: Request, res: Response) {
+  res.json(await dashboardService.ticketsAgentesInactivos());
+}

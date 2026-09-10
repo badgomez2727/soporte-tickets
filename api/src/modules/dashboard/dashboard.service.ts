@@ -170,3 +170,26 @@ export async function totalAbiertos() {
   `;
   return { totalAbiertos: Number(fila?.total_abiertos ?? 0) };
 }
+
+type FilaTicketAgenteInactivo = {
+  id: string;
+  titulo: string;
+  estado: string;
+  prioridad: string;
+  agente_id: string;
+  agente_nombre: string;
+};
+
+// No es una de las 8 consultas de queries.sql — se agregó para el
+// frontend, que pide explícitamente esta vista para Supervisor y
+// Administrador (ver README). Mismo criterio que las demás: SQL directo,
+// sin filtros ni parámetros externos.
+export async function ticketsAgentesInactivos() {
+  return prisma.$queryRaw<FilaTicketAgenteInactivo[]>`
+    SELECT t.id, t.titulo, t.estado, t.prioridad, u.id AS agente_id, u.nombre AS agente_nombre
+    FROM tickets t
+    JOIN usuarios u ON t.agente_id = u.id
+    WHERE u.activo = false
+    ORDER BY u.nombre, t.titulo
+  `;
+}
