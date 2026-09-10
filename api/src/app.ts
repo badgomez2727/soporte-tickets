@@ -1,5 +1,6 @@
 import cors from 'cors';
 import express from 'express';
+import helmet from 'helmet';
 import pinoHttp from 'pino-http';
 import { env } from './config/env.js';
 import { routes } from './routes.js';
@@ -14,6 +15,7 @@ export function createApp() {
   const app = express();
 
   app.use(pinoHttp({ logger }));
+  app.use(helmet());
   app.use(cors({ origin: env.CORS_ORIGIN }));
   app.use(express.json({ limit: '1mb' }));
 

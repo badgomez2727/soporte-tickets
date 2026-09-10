@@ -19,4 +19,12 @@ export class HttpError extends Error {
   static conflict(message: string) {
     return new HttpError(409, message);
   }
+
+  static unauthorized(message = 'No autorizado') {
+    return new HttpError(401, message);
+  }
+
+  static forbidden(message = 'No tiene permisos para esta acción') {
+    return new HttpError(403, message);
+  }
 }

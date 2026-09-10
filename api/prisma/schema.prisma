@@ -53,6 +53,8 @@ model Usuario {
 
   comentarios Comentario[]
 
+  tokensRefresco TokenRefresco[]
+
   @@map("usuarios")
 }
 
@@ -125,6 +127,29 @@ model HistorialAsignacion {
   // Soporta la consulta 7 (COUNT por ticket_id).
   @@index([ticketId])
   @@map("historial_asignaciones")
+}
+
+// Refresh tokens con rotación. Nunca se guarda el token en texto plano: solo
+// su hash SHA-256 (rápido, no argon2 — el token ya tiene 256 bits de entropía
+// propia, a diferencia de una contraseña no necesita un hash lento). Ver
+// README > Decisiones para la justificación completa del diseño (rotación,
+// detección de reuso, y por qué se revoca todo al bloquear un usuario).
+model TokenRefresco {
+  id String @id @default(uuid(7)) @db.Uuid
+
+  usuarioId String  @map("usuario_id") @db.Uuid
+  usuario   Usuario @relation(fields: [usuarioId], references: [id])
+
+  tokenHash String @unique @map("token_hash")
+
+  fechaCreacion    DateTime  @default(now()) @map("fecha_creacion")
+  fechaExpiracion  DateTime  @map("fecha_expiracion")
+  // null = sigue vigente. Se fija al rotar (uso normal), al hacer logout, o
+  // al bloquear al usuario dueño del token.
+  fechaRevocacion  DateTime? @map("fecha_revocacion")
+
+  @@index([usuarioId])
+  @@map("tokens_refresco")
 }
 
 model Comentario {

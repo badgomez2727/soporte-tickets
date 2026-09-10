@@ -8,6 +8,29 @@ on:
 jobs:
   api:
     runs-on: ubuntu-latest
+    # El módulo de autenticación se prueba contra Postgres real (no con
+    # mocks) — igual que se validó todo el modelo de datos a mano en este
+    # proyecto. Sin este servicio, npm test fallaría en CI aunque pase local.
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: app
+          POSTGRES_PASSWORD: app
+          POSTGRES_DB: app
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U app -d app"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://app:app@localhost:5432/app?schema=public
+      # Solo para CI: valor fijo y sin uso fuera de este workflow, no es un
+      # secreto real de ningún ambiente. En local cada quien tiene el suyo
+      # en api/.env (gitignored) — ver api/.env.example.
+      JWT_SECRET: ci-secreto-de-pruebas-sin-uso-real-fuera-de-este-workflow
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -19,6 +42,9 @@ jobs:
       - name: Typecheck
         working-directory: api
         run: npm run typecheck
+      - name: Aplicar migraciones
+        working-directory: api
+        run: npx prisma migrate deploy
       - name: Pruebas
         working-directory: api
         run: npm test
