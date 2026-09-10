@@ -51,6 +51,23 @@ cd web && npm run typecheck
 cd web && npm run build
 ```
 
+**Timeout de los tests, distinto en CI**: `argon2id` (hash de contraseñas)
+es deliberadamente costoso en CPU. El default de Vitest (5s) alcanza en
+una máquina sin carga, pero bajo contención real un test puede superarlo
+sin que el código esté roto — medido en desarrollo local (máquina
+compartida con otros procesos): corriendo la suite 3 veces seguidas,
+tests individuales tardaron entre 3s y 5.1s, cerca del límite viejo sin
+margen real. `api/vitest.config.ts` sube el timeout a 15s en local.
+
+En CI (GitHub Actions, runner de 2 vCPU) el mismo cuello de botella aplica
+igual o peor — es una máquina modesta, y Postgres corre como contenedor
+compitiendo por esos mismos 2 vCPU durante los tests. No se pudo medir
+directamente ahí antes de la primera corrida real de CI de este proyecto,
+así que se asume el escenario más conservador en vez de reusar el mismo
+margen que ya resultó justo en local: **el doble, 30s**
+(`testTimeout: process.env.CI ? 30000 : 15000`) — `CI` la pone GitHub
+Actions automáticamente en cada job, no hace falta configurarla.
+
 ## Estructura
 
 ```

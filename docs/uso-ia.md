@@ -583,3 +583,44 @@ punto. La corrida completa sí encontró algo (aunque resultó ser
 ambiental, no un error de la reconstrucción) — no se hubiera sabido sin
 correr la suite más de una vez al terminar, en vez de conformarse con la
 primera corrida en verde.
+
+---
+
+## 2026-09-09 — Verificación pre-GitHub: log, 3 corridas de tests, timeout en CI
+
+**Se pidió:** mostrar `git log` completo (dos formatos); correr las
+pruebas del API 3 veces seguidas para confirmar que el timeout
+intermitente de `auth.test.ts` quedó resuelto con los 15s (avisar si
+volvía a fallar); evaluar si esos 15s alcanzan para el runner de GitHub
+Actions o si conviene más margen ahí, y documentar la decisión.
+
+**Qué hizo la IA:**
+- Corrió las 3 corridas pedidas: **16/16 las tres veces**, sin ningún
+  timeout. Reportó el resultado real, no una suposición de que "ya debería
+  estar arreglado" porque el commit anterior lo decía.
+- No se conformó con "pasó 3 veces, listo": miró los tiempos individuales
+  de cada test dentro de esas corridas y encontró que varios estuvieron
+  entre 3s y 5.1s — es decir, cerca del límite viejo de 5s sin margen
+  real, aunque ninguno lo haya superado en estas 3 corridas puntuales. Ese
+  dato (no la simple ausencia de fallos) fue la base para la decisión del
+  punto 3.
+- Con esa evidencia, decidió que CI necesita más margen que local, no el
+  mismo: GitHub Actions corre en runners de 2 vCPU (máquina modesta) con
+  Postgres como contenedor compitiendo por esos mismos núcleos durante los
+  tests — un escenario de contención al menos comparable al que ya dejó
+  sin margen los 15s locales. Como el proyecto no tiene corridas de CI
+  previas para medir directamente, asumió el escenario conservador en vez
+  de reusar el mismo número: el doble, 30s, condicionado a `process.env.CI`
+  (que GitHub Actions pone automáticamente, sin configuración extra).
+- Documentó la decisión completa (por qué 15s en local, por qué el doble
+  en CI, y que no se pudo medir directamente en CI todavía) en README >
+  Pruebas, no solo en el código.
+
+**Qué se aceptó:** todo lo anterior.
+
+**Nota:** el timeout de CI es una decisión tomada sin poder medirla
+todavía (no hay corridas de CI previas de este proyecto) — a diferencia
+del resto de las decisiones de rendimiento de esta sesión (el índice de
+la consulta 3, el timeout local), que sí se verificaron con datos reales
+antes de decidir. Vale la pena revisarlo con la primera corrida real de
+CI y ajustar si hace falta, en vez de asumir que 30s es definitivo.
