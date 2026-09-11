@@ -257,15 +257,27 @@ transacción de Prisma.
   puede trabajar ni un supervisor puede auditar un ticket que solo tiene
   título. Se rechaza como inválido en la validación de entrada, no se
   permite `null`/cadena vacía a nivel de esquema.
+- **Qué es un "comentario interno"**: el enunciado lista "puede agregar
+  comentarios internos" solo para el rol Supervisor, no para Agente. Se
+  interpreta como una nota de gestión entre Administrador y Supervisor,
+  **no visible para el Agente asignado** — no como "un comentario que el
+  cliente no ve", porque en este sistema el Cliente no tiene acceso a la
+  plataforma en absoluto (ver el supuesto de arriba, "Cliente no es un rol
+  de autenticación"); esa lectura haría que todo comentario fuera interno
+  por definición, vaciando de sentido la distinción. Esta interpretación
+  es la que explica por qué el enunciado lista la capacidad para
+  Supervisor y no para Agente: si fuera "el cliente no lo ve", no habría
+  razón para que un Agente no pudiera escribirlos también.
 
 ## Datos de prueba (`api/prisma/seed.ts`)
 
 `npm run prisma:seed` (o `npx prisma db seed`) carga 5 clientes, 6 usuarios
 (uno inactivo), 15 tickets cubriendo los 7 estados y las 4 prioridades, 21
-filas de historial de asignaciones y 7 comentarios — suficiente para que las
-8 consultas de `queries.sql` devuelvan resultados no vacíos, más un ticket
-asignado a propósito al agente inactivo (para la vista de dashboard que
-pidió el frontend, ver más abajo).
+filas de historial de asignaciones y 8 comentarios (uno interno) —
+suficiente para que las 8 consultas de `queries.sql` devuelvan resultados
+no vacíos, más un ticket asignado a propósito al agente inactivo (para la
+vista de dashboard que pidió el frontend, ver más abajo) y un comentario
+interno para poder demostrar el filtrado en vivo.
 
 **Para iniciar sesión con cualquier usuario del seed**: la contraseña de
 los 6 es `Demo1234!` (ej. `admin@infinivirt.test` / `Demo1234!`). Ver
@@ -434,6 +446,22 @@ entre personal sobre un caso, no una modificación del ticket en sí. No lo
 pedía el enunciado explícitamente para comentarios (solo para "actualizar
 tickets"), se decidió así por ser el comportamiento más útil y no
 contradice lo pedido.
+
+**Comentarios internos** (`Comentario.esInterno`, columna nueva con
+`@default(false)`): era el único requisito explícito del enunciado que
+había quedado sin implementar — la lista de capacidades de Supervisor
+incluye "puede agregar comentarios internos". Interpretación completa en
+Supuestos.
+- **Autorización al crear**: solo Administrador y Supervisor pueden marcar
+  `esInterno: true`. Un Agente que lo intenta recibe 403 — validado en
+  `agregarComentario` (`tickets.service.ts`), no solo con el tipo booleano
+  de Zod (`crearComentarioSchema`), porque quién puede marcarlo es una
+  regla de autorización, no de forma.
+- **Filtrado al consultar**: si quien pide `GET /api/tickets/:id` es
+  Agente, los comentarios internos se excluyen dentro del `where` de la
+  consulta a Prisma (`comentarios: { where: rolSolicitante === 'agente' ?
+  { esInterno: false } : undefined, ... }`) — nunca llegan al JSON, no es
+  un filtro que el frontend aplique después de recibirlos.
 
 **Cambio de estado** (`cambiarEstado` en `tickets.service.ts`):
 - Al pasar a `reabierto`: `fechaResolucion` se limpia (`null`) — pedido

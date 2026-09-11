@@ -147,6 +147,60 @@ describe('Reasignación en transacción (PATCH /api/tickets/:id/reasignar)', () 
   });
 });
 
+type ComentarioRespuesta = { cuerpo: string; esInterno: boolean };
+
+describe('Comentarios internos (POST /api/tickets/:id/comentarios)', () => {
+  it('un agente no recibe comentarios internos en el detalle del ticket', async () => {
+    const ticket = await crearTicketDePrueba('Ticket con comentario interno', agenteAId);
+
+    const externo = await request(app)
+      .post(`/api/tickets/${ticket.id}/comentarios`)
+      .set('Authorization', `Bearer ${tokenAdmin}`)
+      .send({ cuerpo: 'Comentario visible para todos' });
+    expect(externo.status).toBe(201);
+
+    const interno = await request(app)
+      .post(`/api/tickets/${ticket.id}/comentarios`)
+      .set('Authorization', `Bearer ${tokenAdmin}`)
+      .send({ cuerpo: 'Nota interna solo para gestión', esInterno: true });
+    expect(interno.status).toBe(201);
+
+    // El dueño del ticket (agenteA) no debe recibir el interno en el JSON.
+    const comoAgente = await request(app)
+      .get(`/api/tickets/${ticket.id}`)
+      .set('Authorization', `Bearer ${tokenAgenteA}`);
+
+    expect(comoAgente.status).toBe(200);
+    const cuerposAgente = (comoAgente.body.comentarios as ComentarioRespuesta[]).map((c) => c.cuerpo);
+    expect(cuerposAgente).toContain('Comentario visible para todos');
+    expect(cuerposAgente).not.toContain('Nota interna solo para gestión');
+
+    // Confirma que es un filtro por rol, no que el comentario nunca se
+    // guardó: un Administrador sí lo recibe.
+    const comoAdmin = await request(app)
+      .get(`/api/tickets/${ticket.id}`)
+      .set('Authorization', `Bearer ${tokenAdmin}`);
+
+    const cuerposAdmin = (comoAdmin.body.comentarios as ComentarioRespuesta[]).map((c) => c.cuerpo);
+    expect(cuerposAdmin).toContain('Nota interna solo para gestión');
+  });
+
+  it('un agente que intenta crear un comentario interno recibe 403', async () => {
+    const ticket = await crearTicketDePrueba('Ticket comentario interno bloqueado', agenteAId);
+
+    const res = await request(app)
+      .post(`/api/tickets/${ticket.id}/comentarios`)
+      .set('Authorization', `Bearer ${tokenAgenteA}`)
+      .send({ cuerpo: 'Intento de nota interna', esInterno: true });
+
+    expect(res.status).toBe(403);
+
+    // Efecto real: no se creó ningún comentario, no es solo el código de estado.
+    const comentarios = await prisma.comentario.findMany({ where: { ticketId: ticket.id } });
+    expect(comentarios).toHaveLength(0);
+  });
+});
+
 describe('Transición de estados (PATCH /api/tickets/:id/estado)', () => {
   it('fija fecha_resolucion al resolver, y la limpia al reabrir', async () => {
     const ticket = await prisma.ticket.create({

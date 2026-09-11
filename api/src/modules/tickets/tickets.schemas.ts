@@ -52,6 +52,10 @@ export const reasignarSchema = z.object({
 
 export const crearComentarioSchema = z.object({
   cuerpo: z.string().min(1),
+  // Valida solo la forma (booleano). Quién puede marcarlo true (solo
+  // Administrador/Supervisor) es una regla de autorización, no de forma —
+  // se aplica en el servicio, no acá. Ver tickets.service.ts > agregarComentario.
+  esInterno: z.boolean().optional().default(false),
 });
 
 export const listarTicketsQuerySchema = z.object({

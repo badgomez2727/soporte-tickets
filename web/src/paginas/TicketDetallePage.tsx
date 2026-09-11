@@ -22,6 +22,7 @@ export function TicketDetallePage() {
   const [error, setError] = useState<string | null>(null);
 
   const [nuevoComentario, setNuevoComentario] = useState('');
+  const [comentarioInterno, setComentarioInterno] = useState(false);
   const [enviandoComentario, setEnviandoComentario] = useState(false);
 
   const [nuevoEstado, setNuevoEstado] = useState<EstadoTicket | ''>('');
@@ -65,6 +66,9 @@ export function TicketDetallePage() {
   const puedeGestionar =
     usuario.rol === 'administrador' || usuario.rol === 'supervisor' || ticket.agenteId === usuario.id;
   const puedeReasignar = usuario.rol === 'administrador' || usuario.rol === 'supervisor';
+  // Mismo criterio que el servidor (tickets.service.ts > agregarComentario):
+  // solo Administrador/Supervisor pueden marcar un comentario como interno.
+  const puedeComentarInterno = usuario.rol === 'administrador' || usuario.rol === 'supervisor';
 
   async function manejarCambiarEstado(evento: FormEvent) {
     evento.preventDefault();
@@ -103,8 +107,12 @@ export function TicketDetallePage() {
     setEnviandoComentario(true);
     setError(null);
     try {
-      await apiPost(`/tickets/${id}/comentarios`, { cuerpo: nuevoComentario.trim() });
+      await apiPost(`/tickets/${id}/comentarios`, {
+        cuerpo: nuevoComentario.trim(),
+        esInterno: comentarioInterno,
+      });
       setNuevoComentario('');
+      setComentarioInterno(false);
       cargarTicket();
     } catch (error) {
       setError(error instanceof Error ? error.message : 'No se pudo agregar el comentario');
@@ -218,9 +226,13 @@ export function TicketDetallePage() {
       <div className="lista-comentarios">
         {ticket.comentarios.length === 0 && <p className="texto-tenue">Todavía no hay comentarios.</p>}
         {ticket.comentarios.map((comentario) => (
-          <div key={comentario.id} className="comentario">
+          <div
+            key={comentario.id}
+            className={comentario.esInterno ? 'comentario comentario-interno' : 'comentario'}
+          >
             <p className="comentario-meta">
               {comentario.usuario.nombre} · {formatearFecha(comentario.fechaCreacion)}
+              {comentario.esInterno && <span className="badge badge-interno">Interno</span>}
             </p>
             <p>{comentario.cuerpo}</p>
           </div>
@@ -237,6 +249,17 @@ export function TicketDetallePage() {
             disabled={enviandoComentario}
           />
         </div>
+        {puedeComentarInterno && (
+          <label className="campo-checkbox">
+            <input
+              type="checkbox"
+              checked={comentarioInterno}
+              onChange={(e) => setComentarioInterno(e.target.checked)}
+              disabled={enviandoComentario}
+            />
+            Comentario interno (no visible para el agente asignado)
+          </label>
+        )}
         <button type="submit" className="btn btn-primario" disabled={enviandoComentario || !nuevoComentario.trim()}>
           {enviandoComentario ? 'Enviando…' : 'Comentar'}
         </button>

@@ -1,4 +1,4 @@
-import { Prisma, type Ticket } from '@prisma/client';
+import { Prisma, type RolUsuario, type Ticket } from '@prisma/client';
 import { z } from 'zod';
 import { prisma } from '../../shared/prisma.js';
 import { HttpError } from '../../shared/http-error.js';
@@ -50,13 +50,17 @@ export async function listar(filtros: Filtros) {
   };
 }
 
-export async function obtener(id: string) {
+export async function obtener(id: string, rolSolicitante: RolUsuario) {
   const ticket = await prisma.ticket.findUnique({
     where: { id },
     include: {
       cliente: true,
       agente: { select: SELECT_USUARIO_SEGURO },
       comentarios: {
+        // Filtrado en la consulta, no en el frontend: un Agente nunca
+        // recibe los comentarios internos en el JSON, no es que la
+        // interfaz los oculte después de traerlos.
+        where: rolSolicitante === 'agente' ? { esInterno: false } : undefined,
         orderBy: { fechaCreacion: 'asc' },
         include: { usuario: { select: SELECT_USUARIO_SEGURO } },
       },
@@ -139,10 +143,23 @@ export async function reasignar(id: string, nuevoAgenteId: string, asignadoPorId
   return ticket;
 }
 
-export async function agregarComentario(ticketId: string, usuarioId: string, cuerpo: string) {
+export async function agregarComentario(
+  ticketId: string,
+  usuarioId: string,
+  rolSolicitante: RolUsuario,
+  cuerpo: string,
+  esInterno: boolean,
+) {
+  // Solo Administrador/Supervisor pueden marcar un comentario como interno.
+  // Es una regla de autorización (quién puede hacer qué), no de forma —
+  // por eso vive acá y no en el schema de Zod (que solo valida el tipo).
+  if (esInterno && rolSolicitante === 'agente') {
+    throw HttpError.forbidden('Un Agente no puede crear comentarios internos');
+  }
+
   await requerirTicket(ticketId);
   return prisma.comentario.create({
-    data: { ticketId, usuarioId, cuerpo },
+    data: { ticketId, usuarioId, cuerpo, esInterno },
     include: { usuario: { select: SELECT_USUARIO_SEGURO } },
   });
 }

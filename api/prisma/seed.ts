@@ -354,6 +354,9 @@ async function main() {
     data: [
       { ticketId: t2.id, usuarioId: agente2.id, cuerpo: 'Se revisó el proveedor de la troncal, hay reportes similares de otros clientes. Escalado a nivel 2.', fechaCreacion: diasAtras(4) },
       { ticketId: t2.id, usuarioId: supervisor1.id, cuerpo: 'Confirmar con el proveedor el tiempo estimado de resolución y comunicarlo al cliente.', fechaCreacion: diasAtras(3) },
+      // Interno: nota de gestión entre Administrador y Supervisor, no
+      // visible para el agente asignado (ver README > Supuestos).
+      { ticketId: t2.id, usuarioId: supervisor1.id, cuerpo: 'Nota interna: si el proveedor no confirma hoy, escalar a la gerencia de cuenta — el cliente ya reportó dos incidentes similares este trimestre.', esInterno: true, fechaCreacion: diasAtras(3, 2) },
       { ticketId: t3.id, usuarioId: agente1.id, cuerpo: 'Se detectó congestión en el enlace entre sedes en horario pico. Se propone QoS dedicado para VoIP.', fechaCreacion: diasAtras(9) },
       { ticketId: t5.id, usuarioId: agente2.id, cuerpo: 'Se reconfiguró el codec de la troncal saliente. Cliente confirma audio bidireccional restablecido.', fechaCreacion: diasAtras(10) },
       { ticketId: t9.id, usuarioId: agente3.id, cuerpo: 'Se ajustó el algoritmo de distribución de la cola, se deja en observación.', fechaCreacion: diasAtras(3) },
@@ -382,7 +385,7 @@ async function main() {
 
   console.log('Seed cargado:');
   console.log('  5 clientes, 6 usuarios (1 inactivo), 15 tickets');
-  console.log('  21 filas de historial de asignaciones, 7 comentarios');
+  console.log('  21 filas de historial de asignaciones, 8 comentarios (1 interno)');
   console.log('  4 tickets forzados a >48h sin actualizar vía SQL crudo');
   console.log(`  Login de cualquier usuario del seed: contraseña "${PASSWORD_DEMO}"`);
 }

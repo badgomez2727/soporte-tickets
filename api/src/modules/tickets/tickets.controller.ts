@@ -25,8 +25,9 @@ export async function listarController(req: Request, res: Response) {
 }
 
 export async function obtenerController(req: Request, res: Response) {
+  const usuario = requerirUsuario(req);
   const { id } = idParamSchema.parse(req.params);
-  const ticket = await ticketsService.obtener(id);
+  const ticket = await ticketsService.obtener(id, usuario.rol);
   res.json(ticket);
 }
 
@@ -62,8 +63,8 @@ export async function reasignarController(req: Request, res: Response) {
 export async function agregarComentarioController(req: Request, res: Response) {
   const usuario = requerirUsuario(req);
   const { id } = idParamSchema.parse(req.params);
-  const { cuerpo } = crearComentarioSchema.parse(req.body);
-  const comentario = await ticketsService.agregarComentario(id, usuario.id, cuerpo);
+  const { cuerpo, esInterno } = crearComentarioSchema.parse(req.body);
+  const comentario = await ticketsService.agregarComentario(id, usuario.id, usuario.rol, cuerpo, esInterno);
   res.status(201).json(comentario);
 }
 

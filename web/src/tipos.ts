@@ -54,6 +54,7 @@ export type Comentario = {
   ticketId: string;
   usuarioId: string;
   cuerpo: string;
+  esInterno: boolean;
   fechaCreacion: string;
   usuario: Pick<Usuario, 'id' | 'nombre' | 'email' | 'rol' | 'activo' | 'fechaCreacion'>;
 };

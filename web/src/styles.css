@@ -218,6 +218,27 @@ a:hover {
   gap: var(--espacio-1);
 }
 
+/* Checkbox con su etiqueta al lado, no encima — distinto layout que
+   .campo (que apila label arriba del control). */
+.campo-checkbox {
+  display: flex;
+  align-items: center;
+  gap: var(--espacio-2);
+  font-size: 0.9rem;
+  color: var(--color-texto);
+}
+
+/* Sin esto, el checkbox hereda el padding/borde grande pensado para
+   inputs de texto (input, select, textarea de arriba) y se ve deforme. */
+.campo-checkbox input[type='checkbox'] {
+  width: auto;
+  height: auto;
+  padding: 0;
+  border: none;
+  background: none;
+  accent-color: var(--color-azul);
+}
+
 .campo label {
   font-weight: 600;
   font-size: 0.875rem;
@@ -513,6 +534,20 @@ textarea {
   border: 1px solid var(--color-borde);
   border-radius: var(--radio);
   padding: var(--espacio-3);
+}
+
+/* Comentario interno: nota de gestión entre Administrador y Supervisor,
+   no visible para el Agente (ver README > Supuestos). Se distingue con un
+   tinte del marino, la misma familia de color que la nav/login. */
+.comentario-interno {
+  background: color-mix(in srgb, var(--color-marino-medio) 6%, white);
+  border-color: var(--color-marino-medio);
+}
+
+.badge-interno {
+  background: color-mix(in srgb, var(--color-marino-medio) 18%, white);
+  color: var(--color-marino-medio);
+  margin-left: var(--espacio-2);
 }
 
 .comentario-meta {

@@ -170,6 +170,14 @@ model Comentario {
   cuerpo        String
   fechaCreacion DateTime @default(now()) @map("fecha_creacion")
 
+  // Nota de gestión entre Administrador y Supervisor, no visible para el
+  // Agente asignado — ver README > Supuestos para la interpretación
+  // completa. Solo Administrador/Supervisor pueden crearlos (validado en
+  // el servicio), y se filtran en la consulta cuando quien pide el
+  // detalle del ticket es Agente (nunca llegan al JSON, no es un filtro
+  // de frontend).
+  esInterno Boolean @default(false) @map("es_interno")
+
   @@index([ticketId])
   @@map("comentarios")
 }
