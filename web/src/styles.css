@@ -4,18 +4,39 @@
  * cambiar la apariencia después sea tocar esta sección, no cada componente.
  * Sin tema oscuro, sin animaciones: el enunciado no pide un dashboard
  * avanzado, se prioriza que las vistas funcionen y se lean con claridad.
+ *
+ * Paleta tomada de la identidad visual de la empresa (ver variables abajo).
+ * Los tonos claros de fondo de los badges y el hover de las tablas se
+ * derivan de la paleta con color-mix() en vez de inventar valores hex
+ * nuevos — un solo lugar (la variable base) define cada color.
  */
 
+/* Google Fonts vía @import: es la única forma de cargar la tipografía sin
+   tocar index.html, que está fuera del alcance de este archivo. */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
 :root {
-  --color-fondo: #f5f6f8;
+  /* Paleta de marca */
+  --color-marino: #00214f;
+  --color-marino-medio: #0d3863;
+  --color-azul: #005ad9;
+  --color-cian: #00b4d8;
+  --color-acento: #f69b12;
+  --color-fondo: #f6f9fc;
   --color-superficie: #ffffff;
-  --color-texto: #1a1f26;
-  --color-texto-tenue: #5f6b7a;
-  --color-borde: #d8dee5;
-  --color-primario: #1d4ed8;
-  --color-primario-texto: #ffffff;
-  --color-peligro: #b3261e;
-  --color-peligro-fondo: #fdecea;
+  --color-texto: #484848;
+  --color-texto-fuerte: #171717;
+  --color-texto-suave: #6b7280;
+  --color-borde: #dbdbdb;
+  --color-critica: #dc2626;
+  --color-alta: #f69b12;
+  --color-media: #eab308;
+  --color-baja: #9ca3af;
+  --color-exito: #16a34a;
+
+  /* Derivados: fondo/superficie de estado de error, únicos que no vienen
+     dados directo en la paleta — se derivan de --color-critica. */
+  --color-error-fondo: color-mix(in srgb, var(--color-critica) 10%, white);
 
   --espacio-1: 0.25rem;
   --espacio-2: 0.5rem;
@@ -23,8 +44,9 @@
   --espacio-4: 1.5rem;
   --espacio-5: 2.5rem;
 
-  --radio: 6px;
-  --fuente: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --radio: 8px;
+  --radio-grande: 16px;
+  --fuente: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
 }
 
 * {
@@ -50,6 +72,7 @@ h2,
 h3 {
   margin: 0 0 var(--espacio-3);
   line-height: 1.25;
+  color: var(--color-texto-fuerte);
 }
 
 h1 {
@@ -62,8 +85,17 @@ h3 {
   font-size: 1rem;
 }
 
+/* Sin subrayado en reposo, subrayado al pasar el mouse: la señal de
+   "esto es clicable" no depende solo del color (accesibilidad para
+   daltonismo), pero tampoco se ve anticuado con todo subrayado siempre.
+   .btn y .nav-marca se excluyen explícitamente más abajo. */
 a {
-  color: var(--color-primario);
+  color: var(--color-azul);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
 }
 
 /* ---------- layout ---------- */
@@ -75,8 +107,7 @@ a {
 }
 
 .nav {
-  background: var(--color-superficie);
-  border-bottom: 1px solid var(--color-borde);
+  background: var(--color-marino);
   padding: var(--espacio-3) var(--espacio-4);
   display: flex;
   align-items: center;
@@ -88,7 +119,13 @@ a {
 .nav-marca {
   font-weight: 700;
   text-decoration: none;
-  color: var(--color-texto);
+  color: #ffffff;
+}
+
+/* Es la marca/logo, no un enlace de navegación — se excluye a propósito
+   del subrayado en hover que sí llevan los enlaces reales de abajo. */
+.nav-marca:hover {
+  text-decoration: none;
 }
 
 .nav-enlaces {
@@ -100,7 +137,7 @@ a {
 
 .nav-enlace,
 .nav-enlace:visited {
-  color: var(--color-texto-tenue);
+  color: rgba(255, 255, 255, 0.78);
   text-decoration: none;
   padding: var(--espacio-2) var(--espacio-3);
   border-radius: var(--radio);
@@ -108,17 +145,34 @@ a {
 }
 
 .nav-enlace:hover {
-  background: var(--color-fondo);
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+  text-decoration: underline;
 }
 
+/* Enlace activo: marcado con el azul de marca, no solo un cambio de gris. */
 .nav-enlace.activo {
-  background: var(--color-primario);
-  color: var(--color-primario-texto);
+  background: var(--color-azul);
+  color: #ffffff;
 }
 
 .nav-usuario {
   font-size: 0.85rem;
-  color: var(--color-texto-tenue);
+  color: rgba(255, 255, 255, 0.7);
+}
+
+/* El botón "Cerrar sesión" reusa la clase genérica .btn — acá se
+   redefine su apariencia solo dentro de la barra (fondo oscuro), sin
+   tocar Layout.tsx ni la clase .btn en general. */
+.nav .btn {
+  background: transparent;
+  border-color: rgba(255, 255, 255, 0.4);
+  color: #ffffff;
+}
+
+.nav .btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: #ffffff;
 }
 
 .contenedor {
@@ -140,6 +194,9 @@ a {
 
 /* ---------- tarjetas / superficies ---------- */
 
+/* Cuerpo de la aplicación: fondo claro (--color-fondo, ya puesto en body)
+   con tarjetas blancas encima — el marino queda reservado para la nav y
+   el login, no como fondo general de trabajo. */
 .tarjeta {
   background: var(--color-superficie);
   border: 1px solid var(--color-borde);
@@ -164,6 +221,7 @@ a {
 .campo label {
   font-weight: 600;
   font-size: 0.875rem;
+  color: var(--color-texto-fuerte);
 }
 
 input,
@@ -174,13 +232,13 @@ textarea {
   background: var(--color-superficie);
   border: 1px solid var(--color-borde);
   border-radius: var(--radio);
-  padding: var(--espacio-2) var(--espacio-3);
+  padding: var(--espacio-3);
 }
 
 input:focus,
 select:focus,
 textarea:focus {
-  outline: 2px solid var(--color-primario);
+  outline: 2px solid var(--color-azul);
   outline-offset: 1px;
 }
 
@@ -190,19 +248,19 @@ textarea {
 }
 
 .error-texto {
-  color: var(--color-peligro);
+  color: var(--color-critica);
   font-size: 0.875rem;
 }
 
 .ayuda-texto {
-  color: var(--color-texto-tenue);
+  color: var(--color-texto-suave);
   font-size: 0.85rem;
 }
 
 .aviso-error {
-  background: var(--color-peligro-fondo);
-  color: var(--color-peligro);
-  border: 1px solid var(--color-peligro);
+  background: var(--color-error-fondo);
+  color: var(--color-critica);
+  border: 1px solid var(--color-critica);
   border-radius: var(--radio);
   padding: var(--espacio-3);
   font-size: 0.9rem;
@@ -210,6 +268,9 @@ textarea {
 
 /* ---------- botones ---------- */
 
+/* .btn se usa tanto en <button> como en <Link> (ej. "Nuevo ticket") — un
+   <a> con esta clase no debe verse subrayado, ni en reposo ni en hover:
+   es un botón, no un enlace de texto. */
 .btn {
   font: inherit;
   padding: var(--espacio-2) var(--espacio-4);
@@ -218,10 +279,15 @@ textarea {
   background: var(--color-superficie);
   color: var(--color-texto);
   cursor: pointer;
+  text-decoration: none;
 }
 
+/* Secundario (el .btn plano, sin modificador): borde visible + hover
+   claramente distinto, con un tinte azul de marca en vez de solo gris. */
 .btn:hover {
-  background: var(--color-fondo);
+  background: color-mix(in srgb, var(--color-azul) 6%, white);
+  border-color: var(--color-azul);
+  text-decoration: none;
 }
 
 .btn:disabled {
@@ -229,20 +295,34 @@ textarea {
   cursor: not-allowed;
 }
 
+.btn:disabled:hover {
+  background: var(--color-superficie);
+  border-color: var(--color-borde);
+}
+
+/* Primario: acento de marca. Texto oscuro, no blanco — el naranja de
+   --color-acento no da suficiente contraste con blanco encima. */
 .btn-primario {
-  background: var(--color-primario);
-  border-color: var(--color-primario);
-  color: var(--color-primario-texto);
+  background: var(--color-acento);
+  border-color: var(--color-acento);
+  color: var(--color-texto-fuerte);
+  font-weight: 600;
 }
 
 .btn-primario:hover {
-  background: #1a43b8;
+  background: color-mix(in srgb, var(--color-acento) 85%, black);
+  border-color: color-mix(in srgb, var(--color-acento) 85%, black);
 }
 
 .btn-peligro {
-  background: var(--color-peligro);
-  border-color: var(--color-peligro);
-  color: #fff;
+  background: var(--color-critica);
+  border-color: var(--color-critica);
+  color: #ffffff;
+}
+
+.btn-peligro:hover {
+  background: color-mix(in srgb, var(--color-critica) 85%, black);
+  border-color: color-mix(in srgb, var(--color-critica) 85%, black);
 }
 
 /* ---------- filtros y tabla de tickets ---------- */
@@ -267,22 +347,34 @@ textarea {
 .tabla th,
 .tabla td {
   text-align: left;
-  padding: var(--espacio-2) var(--espacio-3);
+  padding: var(--espacio-3);
   border-bottom: 1px solid var(--color-borde);
   font-size: 0.9rem;
 }
 
+/* Encabezado diferenciado: fondo distinto al de las filas, texto en
+   mayúsculas pequeñas con el marino de marca. */
 .tabla th {
-  color: var(--color-texto-tenue);
-  font-weight: 600;
-}
-
-.tabla-fila-link {
-  cursor: pointer;
-}
-
-.tabla-fila-link:hover {
   background: var(--color-fondo);
+  color: var(--color-marino);
+  font-weight: 600;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-bottom: 1px solid var(--color-borde);
+}
+
+/* Filas alternadas — tinte apenas visible del marino, no gris plano. */
+.tabla tbody tr:nth-child(even) {
+  background: color-mix(in srgb, var(--color-marino) 3%, white);
+}
+
+/* Hover real de fila: va después de la regla anterior en el archivo para
+   ganar en caso de empate de especificidad sobre una fila par. No depende
+   de una clase ".tabla-fila-link" en el componente — funciona sobre
+   cualquier <tr> dentro de tbody. */
+.tabla tbody tr:hover {
+  background: color-mix(in srgb, var(--color-azul) 8%, white);
 }
 
 .paginacion {
@@ -292,7 +384,7 @@ textarea {
   justify-content: flex-end;
   margin-top: var(--espacio-3);
   font-size: 0.9rem;
-  color: var(--color-texto-tenue);
+  color: var(--color-texto-suave);
 }
 
 /* ---------- badges de estado / prioridad ---------- */
@@ -306,59 +398,63 @@ textarea {
   white-space: nowrap;
 }
 
+/* Fondo: tinte claro del color de la paleta (16%). Texto: el mismo color
+   oscurecido (65%, mezclado con negro) — así el contraste queda
+   garantizado incluso para los colores más claros de la paleta (media,
+   baja), sin tener que elegir un valor de contraste por cada uno a mano. */
 .badge-estado-nuevo {
-  background: #e5e7eb;
-  color: #374151;
+  background: color-mix(in srgb, var(--color-texto-suave) 16%, white);
+  color: color-mix(in srgb, var(--color-texto-suave) 65%, black);
 }
 .badge-estado-asignado {
-  background: #dbeafe;
-  color: #1e40af;
+  background: color-mix(in srgb, var(--color-azul) 16%, white);
+  color: color-mix(in srgb, var(--color-azul) 65%, black);
 }
 .badge-estado-en_progreso {
-  background: #fef3c7;
-  color: #92400e;
+  background: color-mix(in srgb, var(--color-acento) 16%, white);
+  color: color-mix(in srgb, var(--color-acento) 65%, black);
 }
 .badge-estado-en_espera_cliente {
-  background: #ede9fe;
-  color: #5b21b6;
+  background: color-mix(in srgb, var(--color-cian) 16%, white);
+  color: color-mix(in srgb, var(--color-cian) 65%, black);
 }
 .badge-estado-resuelto {
-  background: #d1fae5;
-  color: #065f46;
+  background: color-mix(in srgb, var(--color-exito) 16%, white);
+  color: color-mix(in srgb, var(--color-exito) 65%, black);
 }
 .badge-estado-cerrado {
-  background: #e5e7eb;
-  color: #1f2937;
+  background: color-mix(in srgb, var(--color-marino-medio) 16%, white);
+  color: var(--color-marino-medio);
 }
 .badge-estado-reabierto {
-  background: #fee2e2;
-  color: #991b1b;
+  background: color-mix(in srgb, var(--color-critica) 16%, white);
+  color: color-mix(in srgb, var(--color-critica) 65%, black);
 }
 
 .badge-prioridad-baja {
-  background: #e5e7eb;
-  color: #374151;
+  background: color-mix(in srgb, var(--color-baja) 20%, white);
+  color: color-mix(in srgb, var(--color-baja) 65%, black);
 }
 .badge-prioridad-media {
-  background: #dbeafe;
-  color: #1e40af;
+  background: color-mix(in srgb, var(--color-media) 20%, white);
+  color: color-mix(in srgb, var(--color-media) 65%, black);
 }
 .badge-prioridad-alta {
-  background: #fef3c7;
-  color: #92400e;
+  background: color-mix(in srgb, var(--color-alta) 20%, white);
+  color: color-mix(in srgb, var(--color-alta) 65%, black);
 }
 .badge-prioridad-critica {
-  background: #fee2e2;
-  color: #991b1b;
+  background: color-mix(in srgb, var(--color-critica) 20%, white);
+  color: color-mix(in srgb, var(--color-critica) 65%, black);
 }
 
 .badge-activo {
-  background: #d1fae5;
-  color: #065f46;
+  background: color-mix(in srgb, var(--color-exito) 16%, white);
+  color: color-mix(in srgb, var(--color-exito) 65%, black);
 }
 .badge-bloqueado {
-  background: #fee2e2;
-  color: #991b1b;
+  background: color-mix(in srgb, var(--color-critica) 16%, white);
+  color: color-mix(in srgb, var(--color-critica) 65%, black);
 }
 
 /* ---------- detalle de ticket ---------- */
@@ -381,7 +477,7 @@ textarea {
 
 .detalle-meta dt {
   font-size: 0.8rem;
-  color: var(--color-texto-tenue);
+  color: var(--color-texto-suave);
   margin-bottom: var(--espacio-1);
 }
 
@@ -421,7 +517,7 @@ textarea {
 
 .comentario-meta {
   font-size: 0.8rem;
-  color: var(--color-texto-tenue);
+  color: var(--color-texto-suave);
   margin-bottom: var(--espacio-1);
 }
 
@@ -434,15 +530,21 @@ textarea {
   margin-bottom: var(--espacio-4);
 }
 
+/* Número grande en el marino de marca, etiqueta pequeña en gris arriba —
+   el orden ya lo pone así el marcado (la etiqueta va primero en el DOM). */
 .metrica-numero {
-  font-size: 2rem;
+  font-size: 2.25rem;
   font-weight: 700;
   margin: var(--espacio-1) 0;
+  color: var(--color-marino);
 }
 
 .metrica-etiqueta {
-  color: var(--color-texto-tenue);
-  font-size: 0.85rem;
+  color: var(--color-texto-suave);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
 .seccion-dashboard {
@@ -451,22 +553,39 @@ textarea {
 
 /* ---------- login ---------- */
 
+/* Fondo marino a pantalla completa: única pantalla donde se usa el marino
+   como fondo general, es la puerta de entrada, no una herramienta de
+   trabajo (ver .contenedor / .tarjeta arriba para el resto de la app). */
+/* Degradado diagonal, mismo tratamiento que la identidad visual de la
+   empresa. Solo acá — la nav queda en color plano a propósito, un
+   degradado en una barra delgada no se aprecia y solo agrega ruido. */
 .login-envoltorio {
   min-height: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: var(--espacio-4);
+  background: linear-gradient(135deg, var(--color-marino) 0%, var(--color-marino-medio) 100%);
 }
 
 .login-tarjeta {
   width: min(24rem, 100%);
+  border-radius: var(--radio-grande);
+  box-shadow: 0 24px 48px -16px rgba(0, 33, 79, 0.45);
+  border: none;
+}
+
+/* Campos de altura cómoda, solo dentro de la tarjeta de login — el resto
+   de la app usa el padding estándar ya puesto arriba en input/select/textarea. */
+.login-tarjeta input {
+  padding: var(--espacio-3) var(--espacio-3);
+  font-size: 1rem;
 }
 
 /* ---------- utilidades ---------- */
 
 .texto-tenue {
-  color: var(--color-texto-tenue);
+  color: var(--color-texto-suave);
 }
 
 .texto-centrado {
@@ -474,6 +593,6 @@ textarea {
 }
 
 .estado-carga {
-  color: var(--color-texto-tenue);
+  color: var(--color-texto-suave);
   padding: var(--espacio-4) 0;
 }
