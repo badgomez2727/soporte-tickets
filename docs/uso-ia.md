@@ -624,3 +624,109 @@ del resto de las decisiones de rendimiento de esta sesión (el índice de
 la consulta 3, el timeout local), que sí se verificaron con datos reales
 antes de decidir. Vale la pena revisarlo con la primera corrida real de
 CI y ajustar si hace falta, en vez de asumir que 30s es definitivo.
+
+---
+
+## 2026-09-11 — Identidad visual mínima (favicon, marca en nav y login)
+
+**Se pidió:** identidad visual propia y mínima, sin logos ni marcas de
+terceros, todo generado en el repo: (1) favicon SVG original en
+`web/public/favicon.svg`, enlazado desde `index.html` — cuadrado o círculo
+con esquinas redondeadas en `--color-marino` con una "T" o forma simple de
+ticket en `--color-acento`, legible a 16px, sin imágenes descargadas ni
+recursos externos; (2) confirmar el `<title>` de la pestaña; (3) marca de
+texto en la nav, en el mismo lugar del enlace de marca actual, con
+jerarquía tipográfica y opcionalmente un identificador cuadrado hecho en
+CSS siguiendo la misma idea del favicon; (4) el mismo tratamiento de marca
+en el login, arriba de la tarjeta, sobre el degradado. Restricción
+estricta: solo `styles.css`, `index.html` y el SVG nuevo — un componente
+solo si es estrictamente necesario para insertar el texto de marca, sin
+ningún cambio de lógica. Cierre: correr el build del frontend y confirmar
+que pasa.
+
+**Qué hizo la IA:**
+- Creó `web/public/favicon.svg` (el directorio no existía, se creó) con
+  dos rectángulos formando una "T" en bloques rectos sobre un cuadrado
+  redondeado — geometría simple a propósito para que se lea nítida a
+  16px, sin curvas que se pierdan a ese tamaño.
+- Confirmó (releyendo el archivo, no de memoria) que el `<title>` ya decía
+  "Soporte Tickets" — no hizo falta cambiarlo, solo se agregó el
+  `<link rel="icon">`.
+- Agregó `.nav-marca-icono` en `styles.css` (un `::after` con
+  `content: 'T'`) — mismo cuadrado + letra que el favicon, con los colores
+  invertidos (fondo acento, letra marino) porque el fondo de la nav ya es
+  marino y un cuadrado marino ahí sería invisible. Mismo componente
+  reutilizado en el login con tamaño mayor (`.marca-login`).
+- Único cambio de componente permitido por el alcance: insertar el
+  `<span className="nav-marca-icono">` en `Layout.tsx` y el
+  `<div className="marca-login">` en `LoginPage.tsx` — puro marcado, sin
+  lógica nueva.
+- **Encontró y corrigió un bug de layout no pedido explícitamente pero
+  necesario para que el punto 4 se viera como se pidió**: `.login-envoltorio`
+  es `display: flex` en fila; con dos hijos directos (la marca nueva y la
+  tarjeta), quedaban lado a lado en vez de apilados. Se corrigió con
+  `flex-direction: column` — reportado y corregido en el momento en que
+  Darío lo notó ("Soporte Tickets quedó al lado izquierdo del login").
+- Corrió `npm run build` (`tsc -b && vite build`) sin errores antes de dar
+  el trabajo por terminado, como se pidió al cierre.
+
+**Qué se aceptó:** todo lo anterior.
+
+**Incidente encontrado después, al verificar que el favicon se viera de
+verdad (transparencia completa, incluye un diagnóstico equivocado antes
+del correcto):**
+
+1. Darío reportó que el favicon no aparecía en la pestaña (ícono genérico
+   del navegador). La IA verificó el servidor con `curl` (HTML con el
+   `<link>` correcto, `/favicon.svg` con `200` y `content-type` correcto)
+   y, como todo del lado del servidor se veía bien, planteó la hipótesis
+   de que era **caché del favicon en el navegador** — problema real y
+   conocido, pero no era la causa en este caso.
+2. Antes de llegar a esa hipótesis, sí encontró y corrigió un problema
+   real distinto: `docker-compose.yml` solo montaba `./web/src` como
+   volumen del servicio `web` — `index.html` y `public/` (esta carpeta ni
+   existía cuando se construyó la imagen) nunca se reflejaban sin
+   reconstruir. Se agregaron los montajes de ambos, mismo patrón que ya
+   usa `api` para `src`/`prisma`, y se recreó el contenedor para
+   confirmarlo contra el servidor real.
+3. Al recrear el contenedor para una segunda edición de `index.html`, la
+   IA encontró un segundo problema real de infraestructura: el montaje de
+   `index.html` es de **archivo suelto**, no de directorio — Docker lo
+   liga al inodo, y como la herramienta de edición escribe de forma
+   atómica (archivo nuevo + rename), el inodo cambia y el montaje se
+   queda viendo la versión vieja hasta recrear el contenedor
+   (`--force-recreate`; un `up -d` normal no alcanza porque compose no
+   detecta cambio de configuración, solo de contenido). Documentado como
+   comentario en el propio `docker-compose.yml`.
+4. Con lo anterior corregido y verificado con `curl` en cada paso, Darío
+   probó en incógnito y seguía sin verse — es decir, **la hipótesis de
+   caché de navegador de la IA era incorrecta**, o al menos incompleta.
+   La IA propuso un diagnóstico más fino (abrir `favicon.svg` directo en
+   una pestaña) en vez de seguir insistiendo en la misma hipótesis, y ahí
+   Darío mismo obtuvo el error real: **"Comment must not contain '--'
+   (double-hyphen)"** — un error de parseo XML.
+5. **Causa raíz real**: el comentario dentro del SVG citaba nombres de
+   variables CSS (`--color-marino`, `--color-acento`) para explicar la
+   paleta. XML prohíbe la secuencia `--` en cualquier posición dentro de
+   un comentario (a diferencia de HTML, que es laxo con eso) — el archivo
+   era XML inválido de punta a punta, así que ningún navegador podía
+   dibujarlo ni usarlo como ícono, sin importar caché ni modo incógnito.
+   Ninguna de las pruebas de servidor (`curl`) lo había detectado porque
+   `curl` no valida el contenido, solo que el archivo se sirve. Se
+   reescribió el comentario sin esa sintaxis y se validó como XML bien
+   formado con un parser antes de dar el problema por resuelto.
+
+**Qué se rechazó / quedó descartado:** la hipótesis inicial de "caché del
+navegador" como explicación completa — parte de la confusión sí era caché
+(el primer `?v=1` fallido pudo quedar cacheado), pero la causa de fondo
+era el SVG inválido, no la caché. Se corrigió el diagnóstico en vivo en
+vez de insistir en la primera teoría.
+
+**Nota para la sustentación:** este es un buen ejemplo de un diagnóstico
+que empezó por el camino equivocado (caché) y se corrigió con evidencia
+(la prueba directa de la URL del SVG, sugerida por la IA pero ejecutada y
+reportada por Darío, fue la que reveló el error real) — vale la pena
+mencionarlo así de honesto si preguntan por los límites del uso de IA: no
+siempre acierta el diagnóstico a la primera, y por eso importa verificar
+con la fuente real (el navegador, no solo `curl`) antes de cerrar un
+problema como resuelto.
