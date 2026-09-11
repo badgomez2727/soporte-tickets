@@ -3,6 +3,13 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- ?v=2: los navegadores cachean el favicon por origen de forma muy
+         agresiva, independiente del caché normal de la página — un query
+         param fuerza a tratarlo como recurso nuevo. Subido a v=2 porque el
+         v=1 apuntaba a un SVG inválido (comentario XML con "--", ver
+         docs/uso-ia.md) que el navegador nunca pudo dibujar; hay que
+         subir este número cada vez que cambie el contenido del ícono. -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=2" />
     <title>Soporte Tickets</title>
   </head>
   <body>

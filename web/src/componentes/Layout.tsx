@@ -22,6 +22,7 @@ export function Layout({ children }: { children: ReactNode }) {
     <div className="layout">
       <header className="nav">
         <NavLink to="/tickets" className="nav-marca">
+          <span className="nav-marca-icono" aria-hidden="true"></span>
           Soporte Tickets
         </NavLink>
 

@@ -43,6 +43,10 @@ export function LoginPage() {
 
   return (
     <div className="login-envoltorio">
+      <div className="marca-login" aria-hidden="true">
+        <span className="nav-marca-icono"></span>
+        Soporte Tickets
+      </div>
       <div className="tarjeta login-tarjeta">
         <h1>Iniciar sesión</h1>
         <form className="formulario" onSubmit={manejarEnvio} noValidate>

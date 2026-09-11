@@ -116,8 +116,18 @@ a:hover {
   flex-wrap: wrap;
 }
 
+/* Identidad mínima propia (sin logos ni marcas de terceros): el nombre de
+   la aplicación con jerarquía tipográfica propia, más un identificador
+   cuadrado hecho en CSS con la misma idea que public/favicon.svg (cuadrado
+   --color-marino + "T" --color-acento, acá invertido a acento/marino
+   porque el fondo de la nav ya es marino). */
 .nav-marca {
+  display: flex;
+  align-items: center;
+  gap: var(--espacio-2);
   font-weight: 700;
+  font-size: 1.05rem;
+  letter-spacing: 0.01em;
   text-decoration: none;
   color: #ffffff;
 }
@@ -126,6 +136,26 @@ a:hover {
    del subrayado en hover que sí llevan los enlaces reales de abajo. */
 .nav-marca:hover {
   text-decoration: none;
+}
+
+.nav-marca-icono {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 6px;
+  background: var(--color-acento);
+  flex-shrink: 0;
+}
+
+.nav-marca-icono::after {
+  content: 'T';
+  font-family: var(--fuente);
+  font-weight: 700;
+  font-size: 0.8rem;
+  line-height: 1;
+  color: var(--color-marino);
 }
 
 .nav-enlaces {
@@ -597,10 +627,38 @@ textarea {
 .login-envoltorio {
   min-height: 100%;
   display: flex;
+  /* Columna, no fila: la marca y la tarjeta son dos hijos directos y deben
+     apilarse (marca arriba, tarjeta debajo), no quedar lado a lado. */
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   padding: var(--espacio-4);
   background: linear-gradient(135deg, var(--color-marino) 0%, var(--color-marino-medio) 100%);
+}
+
+/* Marca sobre el degradado, arriba de la tarjeta: hoy el login no
+   identificaba qué aplicación es. Reusa .nav-marca-icono (mismo cuadrado
+   + "T" que la nav y el favicon) en un tamaño mayor, acorde a que acá es
+   la pieza central de la pantalla y no un detalle de barra. */
+.marca-login {
+  display: flex;
+  align-items: center;
+  gap: var(--espacio-2);
+  margin-bottom: var(--espacio-4);
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 1.35rem;
+  letter-spacing: 0.01em;
+}
+
+.marca-login .nav-marca-icono {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 8px;
+}
+
+.marca-login .nav-marca-icono::after {
+  font-size: 1.05rem;
 }
 
 .login-tarjeta {
