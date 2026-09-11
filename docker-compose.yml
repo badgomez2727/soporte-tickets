@@ -46,6 +46,15 @@ services:
       - '5173:5173'
     volumes:
       - ./web/src:/app/src
+      # index.html es un montaje de archivo suelto (no de directorio como
+      # los otros dos): Docker lo liga al inodo, y una edición con
+      # escritura atómica (crea archivo nuevo + renombra) cambia el inodo
+      # y deja el montaje viendo la versión vieja. Si se edita index.html
+      # con el stack corriendo, hace falta `docker compose up -d
+      # --force-recreate web` — un `up -d` normal no alcanza porque
+      # compose no detecta cambio de configuración, solo de contenido.
+      - ./web/index.html:/app/index.html
+      - ./web/public:/app/public
     depends_on:
       - api
 
